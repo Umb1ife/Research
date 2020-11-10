@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch._overrides import has_torch_function, handle_torch_function
+from torch.overrides import has_torch_function, handle_torch_function
 
 
 logsigmoid = torch._C._nn.log_sigmoid
