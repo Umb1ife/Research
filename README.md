@@ -1,4 +1,4 @@
-# test Fine-Grained Multi-label Image Recognition using Knowledge Graph and Graph Convolutional Networks
+# Fine-Grained Multi-label Image Recognition using Knowledge Graph and Graph Convolutional Networks
 
 ## Dependencies
 
