@@ -882,6 +882,61 @@ def check_locate():
     print(cnt, len(imlist), cnt / len(imlist))
 
 
+def ite_hist_change(phase='train', width=0.16, saved=True):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from mmm import DataHandler as DH
+
+    plt.rcParams['font.family'] = 'IPAexGothic'
+    # -------------------------------------------------------------------------
+    dpath = '../datas/gcn/outputs/check/ite'
+    data = DH.loadNpy('epoch00to20_thr04_{0}.npy'.format(phase), dpath)
+    diff = [[] for _ in range(5)]
+
+    for item in data:
+        diff[len(item[1]) - 1].append(item[11] - item[3])
+
+    bar_heights = np.zeros((5, 8))
+    thresholds = np.arange(-1.0, 1.1, 0.25)
+
+    for idx, item in enumerate(diff):
+        bin_heights = np.histogram(item, bins=8, range=(-1.0, 1.0))[0]
+        bar_heights[idx] = bin_heights / sum(bin_heights)
+
+    # -------------------------------------------------------------------------
+    # labels = ['{0:0.2f}'.format(item) for item in thresholds]
+    x = np.arange(len(thresholds) - 1)
+    width = width if 0 < width <= 0.2 else 0.16
+
+    fig, ax = plt.subplots()
+
+    ax.bar(x + 0.1 + 2.5 * width, np.ones(8), 5 * width, alpha=0.15)
+    for idx, bh in enumerate(bar_heights):
+        ax.bar(
+            x + 0.5 + width * (idx - 2),
+            bh, width,
+            label='{0}個'.format(idx + 1)
+        )
+
+    x = np.arange(len(thresholds))
+    labels = ['{0}'.format(int(item * 100)) for item in thresholds]
+
+    fig_title = '学習用データセット' if phase == 'train' else '評価用データセット'
+    ax.set_title(fig_title)
+    ax.set_xlabel('学習前後での再現率の変化量(%)')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+    ax.set_yticklabels(['0 %', '25 %', '50 %', '75 %', '100 %'])
+    ax.set_aspect(3)
+    ax.legend(title='上位概念の数')
+
+    plt.show()
+
+    if saved:
+        plt.savefig('../datas/gcn/outputs/check/ite/{0}.png'.format(phase))
+
+
 if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # r = get_predicts()
@@ -889,9 +944,11 @@ if __name__ == "__main__":
     # class_precision(epoch=0)
     # score_unknown(epoch=0)
     # confusion_all_matrix(threshold=0.4, epoch=0, saved=True)
-    # confusion_all_matrix(threshold=0.4, epoch=20, saved=True)
+    confusion_all_matrix(threshold=0.4, epoch=20, saved=True)
     # r = check_lowrecall()
     # check_locate()
     # compare_pr(threshold=0.4, saved=True)
+    # ite_hist_change('train')
+    # ite_hist_change('validate')
     # -------------------------------------------------------------------------
     print('finish.')
