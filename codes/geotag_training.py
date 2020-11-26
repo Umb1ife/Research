@@ -110,8 +110,9 @@ if __name__ == "__main__":
     )
 
     # 誤差伝播の重みの読み込み
-    # bp_weight = DH.loadNpy('backprop_weight', input_path)
-    bp_weight = DH.loadNpy('thr5_r', input_path + 'backprop_weight')
+    bp_weight = DH.loadNpy('backprop_weight', input_path)
+    # bp_weight = DH.loadNpy('thr5_r', input_path + 'backprop_weight')
+    # bp_weight = DH.loadNpy('backprop_weight', input_path + 'backprop_weight')
 
     # 入力位置情報の正規化のためのパラメータ読み込み
     mean, std = DH.loadNpy('normalize_params', input_path)
@@ -132,7 +133,6 @@ if __name__ == "__main__":
     # 学習
     # -------------------------------------------------------------------------
     # モデルの保存先
-    # mpath = path_top + 'outputs/newnet_learned/'
     mpath = args.outputs_path if args.outputs_path[-1:] == '/' \
         else args.outputs_path + '/'
 

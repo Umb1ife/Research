@@ -392,16 +392,143 @@ def test(limited=None):
     return aaa
 
 
-if __name__ == "__main__":
-    # visualize_pn('../datas/rr/outputs/newnet_learned/200weight.pth', tag='ca')
-    confusion_all_matrix(
-        epoch=200, saved=True,
-        mask_path='../datas/rr/inputs/comb_mask_finetune/thr_6.pickle',
-        model_path='../datas/rr/outputs/newmask_6_learned/',
-        bpw_path='../datas/rr/inputs/backprop_weight/thr6.npy',
-        outputs_path='../datas/rr/outputs/check/all_matrix/newmask_6.npy'
+def get_sample_image(tag, phase='train'):
+    '''
+    指定したタグの画像をfoliumで作成した地図上にプロット
+    '''
+    import base64
+    import folium
+    import glob
+    import os
+    from folium import IFrame
+    from mmm import DataHandler as DH
+
+    locate_dict = 'photo_location_train' if phase == 'train' \
+        else 'photo_location_validate'
+    locate_dict = DH.loadPickle(locate_dict, '../datas/rr/inputs')
+    phase = 'local_visual_2017' if phase == 'train' else 'local_visual_2016'
+    image_path = '../datas/gcn/inputs/images/{0}/{1}/'.format(phase, tag)
+    files = glob.glob(image_path + '*.jpg')
+
+    _map = folium.Map(
+        location=[40.0, -100.0],
+        zoom_start=4,
+        tiles='Stamen Terrain'
     )
-    plot_map()
-    test()
-    visualize_classmap()
-    plot_map()
+
+    for img in files:
+        lon, lat = locate_dict[os.path.basename(img)]
+        encoded = base64.b64encode(open(img, 'rb').read())
+        html = '<img src="data:image/jpg;base64,{}">'.format
+        resolution, width, height = 10, 50, 25
+        iframe = IFrame(
+            html(encoded.decode('UTF-8')),
+            width=(width * resolution) + 20,
+            height=(height * resolution) + 20
+        )
+        popup = folium.Popup(iframe, max_width=1000)
+        folium.Circle(
+            radius=150,
+            location=[lat, lon],
+            popup=popup,
+            color='red',
+            fill=False,
+        ).add_to(_map)
+
+    return _map
+
+
+def small_graph(tag, hops=2):
+    from mmm import DataHandler as DH
+
+    lda = '../datas/rr/inputs/geo/local_df_area16_wocoth_kl5.pickle'
+    lda = DH.loadPickle(lda)
+    rda = '../datas/prepare/rep_df_area16_wocoth.pickle'
+    rda = DH.loadPickle(rda)
+    grd = '../datas/rr/inputs/geo/geo_rep_df_area16_kl5.pickle'
+    grd = DH.loadPickle(grd)
+    grd = set(grd.index)
+
+    # -------------------------------------------------------------------------
+    # 指定したタグからn-hop以内のdownタグを取得
+    layer = rda['down'][tag]
+    down_tag, flgs = layer[:], []
+    for _ in range(hops - 1):
+        temp = []
+        for item in layer:
+            if item in flgs:
+                continue
+
+            flgs.append(item)
+            temp.extend(lda['down'][item])
+
+        temp = list(set(temp))
+        down_tag.extend(temp)
+        layer = temp[:]
+
+    rda = set(rda.index)
+    down_tag = sorted(list(set(down_tag) - rda - {tag}))
+    down_tag = [
+        item for item in down_tag if len(lda['geo_representative'][item]) > 0
+    ]
+
+    # -------------------------------------------------------------------------
+    # 取得したdownタグからn-hop以内のvisual-repとなるタグを取得
+    vis_rep = []
+    layer = down_tag[:]
+    flgs = []
+    for _ in range(hops):
+        temp = []
+        for item in layer:
+            if item in flgs or item in rda:
+                continue
+
+            flgs.append(item)
+            temp.extend(lda['representative'][item])
+
+        temp = list(set(temp))
+        vis_rep.extend(temp)
+        layer = temp[:]
+
+    vis_rep = sorted(list((set(vis_rep) - set(down_tag)) & rda))
+
+    # -------------------------------------------------------------------------
+    # 取得したdownタグからn-hop以内のgeo-repとなるタグを取得
+    geo_rep = []
+    layer = down_tag[:]
+    flgs = []
+    for _ in range(hops):
+        temp = []
+        for item in layer:
+            if item in flgs:
+                continue
+
+            flgs.append(item)
+            temp.extend(lda['geo_representative'][item])
+
+        temp = list(set(temp))
+        geo_rep.extend(temp)
+        layer = temp[:]
+
+    geo_rep = sorted(list((set(geo_rep) - set(down_tag)) & grd))
+
+    return vis_rep, geo_rep, down_tag
+
+
+if __name__ == "__main__":
+    # get_sample_image('1000islands')
+    # # visualize_pn('../datas/rr/outputs/newnet_learned/200weight.pth', tag='ca')
+    # confusion_all_matrix(
+    #     epoch=200, saved=True,
+    #     mask_path='../datas/rr/inputs/comb_mask_finetune/thr_6.pickle',
+    #     model_path='../datas/rr/outputs/newmask_6_learned/',
+    #     bpw_path='../datas/rr/inputs/backprop_weight/thr6.npy',
+    #     outputs_path='../datas/rr/outputs/check/all_matrix/newmask_6.npy'
+    # )
+    # plot_map()
+    # test()
+    # visualize_classmap()
+    # plot_map()
+    small_graph('eagle')
+
+    print('finish.')

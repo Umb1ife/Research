@@ -399,12 +399,13 @@ def _make_mask(sim_thr=0.4, saved=True):
     return ft_mask
 
 
-def make_mask(sim_thr=5, saved=True, reverse=True):
+def make_mask(sim_dict='geo_rep_kl5_kl_dict',
+              sim_thr=5, saved=True, reverse=True):
     import numpy as np
     from mmm import DataHandler as DH
 
     dpath = '../datas/rr/inputs/'
-    sim_dict = 'geo_rep_kl_03_dict_r' if reverse else 'geo_rep_kl_03_dict'
+    sim_dict = sim_dict + '_r' if reverse else sim_dict
     sim_dict = DH.loadPickle(sim_dict, dpath + 'geo/')
     category = DH.loadJson('category.json', dpath)
     repsnum = len(category)
@@ -425,6 +426,36 @@ def make_mask(sim_thr=5, saved=True, reverse=True):
         )
 
     return mask
+
+
+def make_simdict(filepath='../datas/rr/inputs/geo/geo_rep_kl5_kl.pickle',
+                 saved=True, reverse=True):
+    import os
+    from mmm import DataHandler as DH
+    from tqdm import tqdm
+
+    dists = DH.loadPickle(filepath)
+    sim_dict = {}
+
+    for _, item in tqdm(dists.iterrows()):
+        left, right = item['comb']
+        left, right = (right, left) if reverse else (left, right)
+
+        if left not in sim_dict:
+            sim_dict[left] = {}
+
+        if right not in sim_dict:
+            sim_dict[right] = {}
+
+        sim_dict[left][right] = item['sim(a,b)']
+        sim_dict[right][left] = item['sim(b,a)']
+
+    if saved:
+        filename = os.path.splitext(os.path.basename(filepath))[0] + '_dict'
+        filename = filename + '_r' if reverse else filename
+        DH.savePickle(sim_dict, filename, '../datas/rr/inputs/geo/')
+
+    return sim_dict
 
 
 def get_geodatas(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
@@ -457,12 +488,92 @@ def get_geodatas(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
     return geotag_dataset
 
 
+def get_georep(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
+               stage='finetune', phase='train', thr=1, hops=2):
+    '''
+    位置情報について上位クラスを取得
+    '''
+    from mmm import DataHandler as DH
+
+    datas = '../datas/rr/inputs/geo/local_df_area16_wocoth_kl5.pickle'
+    datas = DH.loadPickle(datas)
+    category = '../datas/gcn/inputs/category.json'
+    category = DH.loadJson(category)
+    category = [key for key, _ in category.items()]
+    vis_reps = '../datas/gcn/inputs/upper_category.json'
+    vis_reps = DH.loadJson(vis_reps)
+    vis_reps = [key for key, _ in vis_reps.items()]
+    down_category = list(set(category) - set(vis_reps))
+
+    geo_reps = []
+    layer = down_category[:]
+    # -------------------------------------------------------------------------
+    # n-hop以内にあるrepを取得
+    # flgs = []
+    # for _ in range(hops):
+    #     temp_reps = []
+    #     for ccat in layer:
+    #         if ccat in flgs:
+    #             continue
+
+    #         flgs.append(ccat)
+    #         temp_reps.extend(datas['geo_representative'][ccat])
+
+    #     layer = list(set(temp_reps))
+    #     geo_reps.extend(layer)
+
+    # geo_reps = list(set(geo_reps) - set(down_category))
+    # -------------------------------------------------------------------------
+    # n-hop目にあるrepを取得(n-hop目とn-hop未満両方にあるものもrepとして取得)
+    for _ in range(hops):
+        temp_reps = []
+        for ccat in layer:
+            temp_reps.extend(datas['geo_representative'][ccat])
+
+        layer = list(set(temp_reps))
+
+    geo_reps = list(set(layer) - set(down_category))
+    # -------------------------------------------------------------------------
+    geo_reps = [(item, len(datas['geo'][item])) for item in geo_reps]
+    geo_reps = [item[0] for item in geo_reps if item[1] >= thr]
+    geo_reps.sort()
+
+    if saved:
+        DH.savePickle(geo_reps, 'geo_reps.pickle', '../datas/rr/inputs/')
+
+    return geo_reps
+    # -------------------------------------------------------------------------
+    # 以下正しいかどうかとかのテスト
+
+    # grd = '../datas/rr/inputs/geo/geo_rep_df_area16_kl5.pickle'
+    # grd = DH.loadPickle(grd)
+
+    # check_down = []
+    # for item in geo_reps:
+    #     check_down.extend(grd.loc[item]['down'])
+
+    # check_down = list(set(check_down) & set(down_category))
+    # lcd = len(check_down)
+    # -------------------------------------------------------------------------
+    # cnt = 0
+    # cnt2 = 0
+    # for ccat in down_category:
+    #     if len(datas['geo_representative'][ccat]) == 0:
+    #         cnt += 1
+
+    #     if ccat in datas.index:
+    #         cnt2 += 1
+
+    # return geo_reps
+
+
 if __name__ == "__main__":
     # -------------------------------------------------------------------------
-    # get_geodatas(savepath='../datas/rr/inputs/locate_dataset', phase='train')
-    # make_geodataset(stage='finetune', phase='train', refined=False, thr=1)
-    # make_mask(0.4)
-    # make_imlist()
+    # make_simdict(reverse=False)
+    get_georep()
+    make_geodataset(stage='finetune', phase='train', refined=False, thr=1)
+    make_imlist()
+    make_mask(sim_thr=5)
     make_backprop_ratio()
     # -------------------------------------------------------------------------
     print('finish.')
