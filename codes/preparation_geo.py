@@ -21,6 +21,46 @@ def make_photo_locate_dict(phase='train'):
     DH.savePickle(pldict, 'photo_location_' + phase, outputs_path)
 
 
+def make_tag2loc(phase='train', saved=True):
+    import glob
+    import os
+    from mmm import DataHandler as DH
+
+    pld = {
+        'train': '../datas/prepare/inputs/photo_loc_dict_2017.pickle',
+        'validate': '../datas/prepare/inputs/photo_loc_dict_2016.pickle',
+    }
+    pld = DH.loadPickle(pld[phase])
+    photo_paths = ['../datas/prepare/rep_{0}/'.format(phase),
+                   '../datas/prepare/local_{0}/'.format(phase)]
+
+    tag_name_pairs = []
+    for pp in photo_paths:
+        temp = glob.glob(pp + '*/*.jpg')
+        temp = [
+            (os.path.basename(os.path.dirname(item)), os.path.basename(item))
+            for item in temp
+        ]
+        tag_name_pairs.extend(temp)
+
+    tag2loc = {}
+    for tag, photo in tag_name_pairs:
+        photo = int(photo[:-4])
+        loc = pld[photo]
+
+        if tag not in tag2loc:
+            tag2loc[tag] = []
+
+        tag2loc[tag].append(loc)
+
+    if saved:
+        DH.savePickle(
+            tag2loc, 'tag2loc_{0}'.format(phase), '../datas/rr/inputs/'
+        )
+
+    return tag2loc
+
+
 def make_category(thr=100):
     import json
     from mmm import DataHandler as DH
@@ -568,9 +608,10 @@ def get_georep(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
 
 
 if __name__ == "__main__":
+    # make_tag2loc('train')
     # -------------------------------------------------------------------------
     # make_simdict(reverse=False)
-    get_georep()
+    # get_georep()
     make_geodataset(stage='finetune', phase='train', refined=False, thr=1)
     make_imlist()
     make_mask(sim_thr=5)

@@ -3,35 +3,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 from .datahandler import DataHandler
+from .gcnmodel import GCNLayer
+from .georepmodel import SimpleGeoNet
 from .mymodel import MyBaseModel
 from torchvision import models
-
-
-class GCNLayer(nn.Module):
-    def __init__(self, H, A):
-        super().__init__()
-        # Wの作成
-        self.W = np.logical_or(A, np.identity(len(A))).astype(np.float64)
-
-        # H，A，Wを設定
-        self.H_0 = H
-        self.A = A / (A.sum(0, keepdims=True) + 1e-6)
-        self.W = self.W / (self.W.sum(0, keepdims=True) + 1e-6)
-
-        # モデル化
-        self.H_0 = nn.Parameter(torch.Tensor(self.H_0))
-        self.A = nn.Parameter(torch.Tensor(self.A))
-        self.W = nn.Parameter(torch.Tensor(self.W))
-
-    def forward(self, feature):
-        HAW = torch.matmul(torch.transpose(self.H_0, 0, 1), self.A)
-        HAW = torch.matmul(HAW, self.W)
-        output = torch.matmul(feature, HAW)
-
-        return output
-
-    def __repr__(self):
-        return self.__class__.__name__
 
 
 class GCNModel(nn.Module):
@@ -78,6 +53,8 @@ class GCNModel(nn.Module):
         self._before_fc = torch.nn.Sequential(
             *(list(self._before_fc.children())[:-1])
         )
+
+        self._before_fc = SimpleGeoNet()
 
         # モデルの定義
         # 層を追加するときは下のfowardも変更
