@@ -223,7 +223,7 @@ def get_predicts(phase='train', threshold=0.4, check_epoch=1,
     # ---画像・正解ラベル・予測ラベルの表示---------------------------------------
     # imlist = [(image, label, filename) for image, label, filename in loader]
     # DH.savePickle(imlist, 'imlist', directory=path_top + 'outputs/check/')
-    # imlist = DH.loadPickle('imlist', directory='../datas/rr/inputs')
+    # imlist = DH.loadPickle('imlist', directory='../datas/geo_rep/inputs')
     imlist = DH.loadPickle('imlist', directory=path_top + 'outputs/check/')
     imlist = imlist[ranges[0]:ranges[1]]
     category = json.load(
@@ -859,7 +859,7 @@ def check_locate():
     from mmm import DataHandler as DH
     from tqdm import tqdm
 
-    path_top = '../datas/rr/'
+    path_top = '../datas/geo_rep/'
     photo_location = DH.loadPickle('photo_location_train', path_top + 'inputs')
     local_df = DH.loadPickle(
         '../datas/prepare/inputs/local_df_area16_wocoth2.pickle'

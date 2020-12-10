@@ -1,13 +1,22 @@
 def plot_map(stage='finetune', phase='train', refined=False,
-             limited=None, sort_std=True):
+             limited=None, sort_std=False):
     import colorsys
     import folium
     import numpy as np
-    from preparation_geo import make_geodataset
 
-    datas, category, (mean, std) = make_geodataset(
-        stage=stage, phase=phase, saved=False, refined=refined, thr=1
-    ).values()
+    # -------------------------------------------------------------------------
+    # from preparation_geo import make_geodataset
+    # datas, category, (mean, std) = make_geodataset(
+    #     stage=stage, phase=phase, saved=False, refined=refined, thr=1
+    # ).values()
+
+    from mmm import DataHandler as DH
+    datas = DH.loadPickle('finetune_train.pickle',
+                          '../datas/geo_rep/inputs/locate_dataset')
+    category = DH.loadJson('category.json', '../datas/geo_rep/inputs/')
+    mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
+    # -------------------------------------------------------------------------
+
     category = list(category.keys())
     class_num = len(category)
 
@@ -60,7 +69,7 @@ def plot_map(stage='finetune', phase='train', refined=False,
     return _map
 
 
-def visualize_classmap(weight='../datas/rr/outputs/learned/200cnn.pth',
+def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
                        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
                        limited=None):
     import colorsys
@@ -69,21 +78,26 @@ def visualize_classmap(weight='../datas/rr/outputs/learned/200cnn.pth',
     import torch
     from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
     from mmm import RepGeoClassifier
-    from preparation_geo import make_geodataset
 
     # -------------------------------------------------------------------------
     # load classifier
-    _, category, (mean, std) = make_geodataset(
-        stage='finetune', phase='train', saved=False, refined=False, thr=1
-    ).values()
-    category = list(category.keys())
+    # from preparation_geo import make_geodataset
+    # _, category, (mean, std) = make_geodataset(
+    #     stage='finetune', phase='train', saved=False, refined=False, thr=1
+    # ).values()
 
+    from mmm import DataHandler as DH
+    category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
+    mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
+    # -------------------------------------------------------------------------
+
+    category = list(category.keys())
     num_class = len(category)
     model = RepGeoClassifier(
         class_num=num_class,
         loss_function=MyLossFunction(reduction='none'),
         # backprop_weight=bp_weight,
-        network_setting={'class_num': num_class},
+        network_setting={'class_num': num_class, 'mean': mean, 'std': std},
     )
     model.loadmodel(weight)
 
@@ -111,10 +125,11 @@ def visualize_classmap(weight='../datas/rr/outputs/learned/200cnn.pth',
     # -------------------------------------------------------------------------
     # plot
     for lat in lats:
-        _lat = (lat - mean[1]) / std[1]
+        # _lat = (lat - mean[1]) / std[1]
         for lng in lngs:
-            _lng = (lng - mean[0]) / std[0]
-            labels = model.predict(torch.Tensor([_lng, _lat]), labeling=True)
+            # _lng = (lng - mean[0]) / std[0]
+            # labels = model.predict(torch.Tensor([_lng, _lat]), labeling=True)
+            labels = model.predict(torch.Tensor([lng, lat]), labeling=True)
             labels = np.where(labels > 0)[0]
             radius = 150
             for lbl in labels:
@@ -134,7 +149,7 @@ def visualize_classmap(weight='../datas/rr/outputs/learned/200cnn.pth',
     return _map
 
 
-def visualize_pn(weight='../datas/rr/outputs/learned/200cnn.pth',
+def visualize_pn(weight='../datas/geo_rep/outputs/learned/200cnn.pth',
                  limited=None, tag=''):
     import colorsys
     import folium
@@ -235,10 +250,10 @@ def visualize_pn(weight='../datas/rr/outputs/learned/200cnn.pth',
 
 def confusion_all_matrix(
     epoch=200, saved=False,
-    mask_path='../datas/rr/inputs/comb_mask_finetune/thr_5.pickle',
-    model_path='../datas/rr/outputs/newnet_learned/',
-    bpw_path='../datas/rr/inputs/backprop_weight/thr5.npy',
-    outputs_path='../datas/rr/outputs/check/all_matrix/newnet.npy'
+    mask_path='../datas/geo_rep/inputs/comb_mask_finetune/thr_5.pickle',
+    model_path='../datas/geo_rep/outputs/newnet_learned/',
+    bpw_path='../datas/geo_rep/inputs/backprop_weight/thr5.npy',
+    outputs_path='../datas/geo_rep/outputs/check/all_matrix/newnet.npy'
 ):
     '''
     正例・unknown・負例についてconfusion_matrixを作成
@@ -254,7 +269,7 @@ def confusion_all_matrix(
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    path_top = '../datas/rr/'
+    path_top = '../datas/geo_rep/'
 
     category = DH.loadJson('category.json', path_top + 'inputs/')
     num_class = len(category)
@@ -405,7 +420,7 @@ def get_sample_image(tag, phase='train'):
 
     locate_dict = 'photo_location_train' if phase == 'train' \
         else 'photo_location_validate'
-    locate_dict = DH.loadPickle(locate_dict, '../datas/rr/inputs')
+    locate_dict = DH.loadPickle(locate_dict, '../datas/geo_rep/inputs')
     phase = 'local_visual_2017' if phase == 'train' else 'local_visual_2016'
     image_path = '../datas/gcn/inputs/images/{0}/{1}/'.format(phase, tag)
     files = glob.glob(image_path + '*.jpg')
@@ -441,11 +456,11 @@ def get_sample_image(tag, phase='train'):
 def small_graph(tag, hops=2):
     from mmm import DataHandler as DH
 
-    lda = '../datas/rr/inputs/geo/local_df_area16_wocoth_kl5.pickle'
+    lda = '../datas/geo_rep/inputs/geo/local_df_area16_wocoth_kl5.pickle'
     lda = DH.loadPickle(lda)
     rda = '../datas/prepare/rep_df_area16_wocoth.pickle'
     rda = DH.loadPickle(rda)
-    grd = '../datas/rr/inputs/geo/geo_rep_df_area16_kl5.pickle'
+    grd = '../datas/geo_rep/inputs/geo/geo_rep_df_area16_kl5.pickle'
     grd = DH.loadPickle(grd)
     grd = set(grd.index)
 
@@ -517,18 +532,18 @@ def small_graph(tag, hops=2):
 
 if __name__ == "__main__":
     # get_sample_image('1000islands')
-    # # visualize_pn('../datas/rr/outputs/newnet_learned/200weight.pth', tag='ca')
+    # # visualize_pn('../datas/geo_rep/outputs/newnet_learned/200weight.pth', tag='ca')
     # confusion_all_matrix(
     #     epoch=200, saved=True,
-    #     mask_path='../datas/rr/inputs/comb_mask_finetune/thr_6.pickle',
-    #     model_path='../datas/rr/outputs/newmask_6_learned/',
-    #     bpw_path='../datas/rr/inputs/backprop_weight/thr6.npy',
-    #     outputs_path='../datas/rr/outputs/check/all_matrix/newmask_6.npy'
+    #     mask_path='../datas/geo_rep/inputs/comb_mask_finetune/thr_6.pickle',
+    #     model_path='../datas/geo_rep/outputs/newmask_6_learned/',
+    #     bpw_path='../datas/geo_rep/inputs/backprop_weight/thr6.npy',
+    #     outputs_path='../datas/geo_rep/outputs/check/all_matrix/newmask_6.npy'
     # )
     # plot_map()
     # test()
     # visualize_classmap()
     # plot_map()
-    small_graph('eagle')
+    # small_graph('eagle')
 
     print('finish.')

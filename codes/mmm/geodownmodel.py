@@ -6,12 +6,11 @@ from .datahandler import DataHandler
 from .gcnmodel import GCNLayer
 from .georepmodel import SimpleGeoNet
 from .mymodel import MyBaseModel
-from torchvision import models
 
 
 class GCNModel(nn.Module):
-    def __init__(self, *, num_class=3100, filepaths={},
-                 feature_dimension=2048):
+    def __init__(self, *, num_class=37, filepaths={},
+                 feature_dimension=30, simplegeonet_settings={}):
         '''
         コンストラクタ
         '''
@@ -24,7 +23,7 @@ class GCNModel(nn.Module):
         CNN_weight = torch.load(filepaths['learned_weight'])
 
         # H_0の作成
-        fc_weight = np.array(CNN_weight['fc.weight'].cpu(), dtype=np.float64)
+        fc_weight = np.array(CNN_weight['fc3.weight'].cpu(), dtype=np.float64)
         H_0 = np.zeros((num_class, feature_dimension))
         for label, index in upper_category.items():
             H_0[category[label]] = fc_weight[index]
@@ -44,50 +43,45 @@ class GCNModel(nn.Module):
                 if child in all_category_labels:
                     A[category[label]][category[child]] = 1
 
-        # Fine-tuningしたresnetのFC層前までを取得
-        self._before_fc = models.resnet101(pretrained=True)
-        self._before_fc.fc = nn.Linear(
-            self._before_fc.fc.in_features, len(upper_category)
-        )
+        # GeoRepModelの最終層前までを取得
+        self._before_fc = SimpleGeoNet(**simplegeonet_settings)
         self._before_fc.load_state_dict(CNN_weight)
         self._before_fc = torch.nn.Sequential(
             *(list(self._before_fc.children())[:-1])
         )
 
-        self._before_fc = SimpleGeoNet()
-
         # モデルの定義
         # 層を追加するときは下のfowardも変更
         self.layer1 = GCNLayer(H_0, A)
 
-    def forward(self, image):
+    def forward(self, inputs):
         '''
-        画像をネットワークに通したときの出力(クラスの予測)
+        入力をネットワークに通したときの出力(クラスの予測)
         '''
-        feature = torch.autograd.Variable(image).float()
+        feature = torch.autograd.Variable(inputs).float()
         feature = self._pass_before_fc(feature)
         output = self.layer1(feature)
 
         return output
 
-    def _pass_before_fc(self, image):
+    def _pass_before_fc(self, inputs):
         '''
         Fine-tuningでのFC層前までの特徴量を計算
         '''
         self._before_fc.eval()
         if self._use_gpu:
-            image = image.cuda()
+            inputs = inputs.cuda()
 
-        rimage = self._before_fc(image)
-        rimage = rimage.view(image.shape[0], 2048)
+        output = self._before_fc(inputs)
+        output = output.view(inputs.shape[0], 2048)
 
-        return rimage
+        return output
 
     def __repr__(self):
         return
 
 
-class MultiLabelGCN(MyBaseModel):
+class GeotagGCN(MyBaseModel):
     '''
     GCNで学習する識別器
     '''

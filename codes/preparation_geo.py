@@ -8,7 +8,7 @@ def make_photo_locate_dict(phase='train'):
     path_top = '../datas/prepare/'
     inputs_path = path_top + 'inputs'
     # outputs_path = path_top + 'outputs'
-    outputs_path = '../datas/rr/inputs'
+    outputs_path = '../datas/geo_rep/inputs'
 
     # -------------------------------------------------------------------------
     filename = 'photo_loc_dict_2017.pickle' \
@@ -55,7 +55,7 @@ def make_tag2loc(phase='train', saved=True):
 
     if saved:
         DH.savePickle(
-            tag2loc, 'tag2loc_{0}'.format(phase), '../datas/rr/inputs/'
+            tag2loc, 'tag2loc_{0}'.format(phase), '../datas/geo_rep/inputs/'
         )
 
     return tag2loc
@@ -65,7 +65,7 @@ def make_category(thr=100):
     import json
     from mmm import DataHandler as DH
 
-    datas = '../datas/rr/inputs/local_df_area16_wocoth.pickle'
+    datas = '../datas/geo_rep/inputs/local_df_area16_wocoth.pickle'
     datas = DH.loadPickle(datas)
     category = '../datas/gcn/inputs/category.json'
     category = json.load(open(category, 'rb'))
@@ -119,7 +119,7 @@ def make_imlist(phase='train', saved=True):
     from mmm import DatasetGeotag
     from tqdm import tqdm
 
-    path_top = '../datas/rr/'
+    path_top = '../datas/geo_rep/'
     category = json.load(open(path_top + 'inputs/category.json', 'rb'))
     num_class = len(category)
     kwargs_DF = {
@@ -161,7 +161,7 @@ def make_backprop_ratio(sim_thr=0.4, saved=True):
     # ---準備-------------------------------------------------------------------
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    path_top = '../datas/rr/'
+    path_top = '../datas/geo_rep/'
 
     # データの読み込み
     # imlist = DH.loadPickle(
@@ -234,7 +234,7 @@ def make_geodataset(stage='finetune', phase='train', saved=True,
     from mmm import DataHandler as DH
     from tqdm import tqdm
 
-    datas = '../datas/rr/inputs/local_df_area16_wocoth.pickle'
+    datas = '../datas/geo_rep/inputs/local_df_area16_wocoth.pickle'
     datas = DH.loadPickle(datas)
     mean, std = None, None
     locates = list(datas['geo'])
@@ -260,7 +260,7 @@ def make_geodataset(stage='finetune', phase='train', saved=True,
 
     hierarchy, flags = make_category()
     tags_dict = sorted(hierarchy[0] + hierarchy[1] + flags)
-    tags_dict = DH.loadPickle('../datas/rr/inputs/geo_reps.pickle')
+    tags_dict = DH.loadPickle('../datas/geo_rep/inputs/geo_reps.pickle')
     # tags_dict = [
     #     'sanfrancisco',
     #     'oregon',
@@ -286,12 +286,76 @@ def make_geodataset(stage='finetune', phase='train', saved=True,
             })
 
     if saved:
-        output_path = '../datas/rr/inputs/'
+        output_path = '../datas/geo_rep/inputs/'
         DH.savePickle(
             locate_tags_dictlist, '{0}_{1}.pickle'.format(stage, phase),
             output_path + 'locate_dataset/'
         )
         DH.saveJson(tags_dict, 'category.json', output_path)
+        DH.saveNpy((mean, std), 'normalize_params', output_path)
+
+    return {
+        'locate_tags': locate_tags_dictlist,
+        'tags': tags_dict,
+        'norm': (mean, std)
+    }
+
+
+def make_geodown_dataset(stage='gcn', phase='train', saved=True,
+                         refined=False, thr=1):
+    import numpy as np
+    from mmm import DataHandler as DH
+    from tqdm import tqdm
+
+    datas = '../datas/geo_down/inputs/local_df_area16_wocoth_kl5.pickle'
+    datas = DH.loadPickle(datas)
+    mean, std = None, None
+    locates = list(datas['geo'])
+    temp = [item for gl in locates for item in gl]
+    mean = np.mean(temp, axis=0)
+    std = np.std(temp, axis=0)
+
+    if refined:
+        locates = [
+            remove_outlier(item) if len(item) >= thr else []
+            for item in tqdm(locates)
+        ]
+
+    locates = [item if len(item) >= thr else [] for item in locates]
+    tags = list(datas.index)
+    temp_dict = {key: [] for item in locates for key in item}
+    for item, tag in zip(locates, tags):
+        for locate in item:
+            temp_dict[locate].append(tag)
+
+    for key, val in temp_dict.items():
+        temp_dict[key] = sorted(list(set(val)))
+
+    # hierarchy, flags = make_category()
+    # tags_dict = sorted(hierarchy[0] + hierarchy[1] + flags)
+    tags_dict = DH.loadJson('../datas/geo_down/inputs/category.json')
+    flgs = DH.loadJson('../datas/geo_down/inputs/upper_category.json')
+    flgs = sorted(list(set(tags_dict) - set(flgs)))
+    # tags_dict.sort()
+    # tags_dict = {key: val for val, key in enumerate(tags_dict)}
+
+    locate_tags_dictlist = []
+    for key, val in temp_dict.items():
+        # temp = [tags_dict[label] for label in val if label in tags_dict]
+        temp = [tags_dict[label] for label in val if label in flgs]
+        if temp:
+            locate_tags_dictlist.append({
+                'labels': temp,
+                'locate': list(key)
+            })
+
+    if saved:
+        output_path = '../datas/geo_down/inputs/'
+        DH.savePickle(
+            locate_tags_dictlist, '{0}_{1}.pickle'.format(stage, phase),
+            output_path + 'locate_dataset/'
+        )
+        # DH.saveJson(tags_dict, 'category.json', output_path)
         DH.saveNpy((mean, std), 'normalize_params', output_path)
 
     return {
@@ -308,7 +372,7 @@ def _make_geodataset(stage='finetune', phase='train', saved=True,
     from mmm import DataHandler as DH
     from tqdm import tqdm
 
-    datas = '../datas/rr/inputs/local_df_area16_wocoth.pickle'
+    datas = '../datas/geo_rep/inputs/local_df_area16_wocoth.pickle'
     datas = DH.loadPickle(datas)
     mean, std = None, None
     if normalized:
@@ -347,7 +411,7 @@ def _make_geodataset(stage='finetune', phase='train', saved=True,
 
     hierarchy, flags = make_category()
     tags_dict = sorted(hierarchy[0] + hierarchy[1] + flags)
-    tags_dict = DH.loadPickle('../datas/rr/inputs/geo_reps.pickle')
+    tags_dict = DH.loadPickle('../datas/geo_rep/inputs/geo_reps.pickle')
     # tags_dict = [
     #     'sanfrancisco',
     #     'oregon',
@@ -375,9 +439,9 @@ def _make_geodataset(stage='finetune', phase='train', saved=True,
     if saved:
         DH.savePickle(
             locate_tags_dictlist, '{0}_{1}.pickle'.format(stage, phase),
-            '../datas/rr/inputs/locate_dataset/'
+            '../datas/geo_rep/inputs/locate_dataset/'
         )
-        json.dump(tags_dict, open('../datas/rr/inputs/category.json', 'w'))
+        json.dump(tags_dict, open('../datas/geo_rep/inputs/category.json', 'w'))
 
     return {
         'locate_tags': locate_tags_dictlist,
@@ -392,7 +456,7 @@ def _make_mask(sim_thr=0.4, saved=True):
     import pandas as pd
     from mmm import DataHandler as DH
 
-    dpath = '../datas/rr/inputs/'
+    dpath = '../datas/geo_rep/inputs/'
     all_sim = DH.loadPickle('geo_rep_sim_03.pickle', dpath + 'geo/')
     all_sim = all_sim.values.tolist()
     category = DH.loadJson('category.json', dpath)
@@ -444,7 +508,7 @@ def make_mask(sim_dict='geo_rep_kl5_kl_dict',
     import numpy as np
     from mmm import DataHandler as DH
 
-    dpath = '../datas/rr/inputs/'
+    dpath = '../datas/geo_rep/inputs/'
     sim_dict = sim_dict + '_r' if reverse else sim_dict
     sim_dict = DH.loadPickle(sim_dict, dpath + 'geo/')
     category = DH.loadJson('category.json', dpath)
@@ -468,7 +532,7 @@ def make_mask(sim_dict='geo_rep_kl5_kl_dict',
     return mask
 
 
-def make_simdict(filepath='../datas/rr/inputs/geo/geo_rep_kl5_kl.pickle',
+def make_simdict(filepath='../datas/geo_rep/inputs/geo/geo_rep_kl5_kl.pickle',
                  saved=True, reverse=True):
     import os
     from mmm import DataHandler as DH
@@ -493,12 +557,12 @@ def make_simdict(filepath='../datas/rr/inputs/geo/geo_rep_kl5_kl.pickle',
     if saved:
         filename = os.path.splitext(os.path.basename(filepath))[0] + '_dict'
         filename = filename + '_r' if reverse else filename
-        DH.savePickle(sim_dict, filename, '../datas/rr/inputs/geo/')
+        DH.savePickle(sim_dict, filename, '../datas/geo_rep/inputs/geo/')
 
     return sim_dict
 
 
-def get_geodatas(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
+def get_geodatas(saved=True, savepath='../datas/geo_rep/inputs/locate_dataset/',
                  stage='finetune', phase='train'):
     '''
     位置情報について上位クラスを取得
@@ -512,7 +576,7 @@ def get_geodatas(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
         open(filepath + '{0}_anno.json'.format(phase), 'rb')
     )
     photo_locates = pickle.load(open(
-        '../datas/rr/inputs/photo_location_{0}.pickle'.format(phase), 'rb'
+        '../datas/geo_rep/inputs/photo_location_{0}.pickle'.format(phase), 'rb'
     ))
 
     geotag_dataset = []
@@ -528,14 +592,14 @@ def get_geodatas(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
     return geotag_dataset
 
 
-def get_georep(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
+def get_georep(saved=True, savepath='../datas/geo_rep/inputs/locate_dataset/',
                stage='finetune', phase='train', thr=1, hops=2):
     '''
     位置情報について上位クラスを取得
     '''
     from mmm import DataHandler as DH
 
-    datas = '../datas/rr/inputs/geo/local_df_area16_wocoth_kl5.pickle'
+    datas = '../datas/geo_rep/inputs/geo/local_df_area16_wocoth_kl5.pickle'
     datas = DH.loadPickle(datas)
     category = '../datas/gcn/inputs/category.json'
     category = DH.loadJson(category)
@@ -579,13 +643,13 @@ def get_georep(saved=True, savepath='../datas/rr/inputs/locate_dataset/',
     geo_reps.sort()
 
     if saved:
-        DH.savePickle(geo_reps, 'geo_reps.pickle', '../datas/rr/inputs/')
+        DH.savePickle(geo_reps, 'geo_reps.pickle', '../datas/geo_rep/inputs/')
 
     return geo_reps
     # -------------------------------------------------------------------------
     # 以下正しいかどうかとかのテスト
 
-    # grd = '../datas/rr/inputs/geo/geo_rep_df_area16_kl5.pickle'
+    # grd = '../datas/geo_rep/inputs/geo/geo_rep_df_area16_kl5.pickle'
     # grd = DH.loadPickle(grd)
 
     # check_down = []
@@ -612,6 +676,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # make_simdict(reverse=False)
     # get_georep()
+    make_geodown_dataset()
     make_geodataset(stage='finetune', phase='train', refined=False, thr=1)
     make_imlist()
     make_mask(sim_thr=5)

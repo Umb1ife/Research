@@ -74,7 +74,7 @@ def refining(phase='train', threshold=0.4,
         )
 
     # ---MeanShiftRifinerの定義-------------------------------------------------
-    path_top = '../datas/rr/'
+    path_top = '../datas/geo_rep/'
     local_dict = DH.loadPickle(
         'local_df_area16_wocoth.pickle', path_top + 'inputs'
     )
@@ -138,7 +138,7 @@ def refining(phase='train', threshold=0.4,
         results.append(result)
 
     if saved:
-        DH.savePickle(results, 'RR', '../datas/rr/outputs/')
+        DH.savePickle(results, 'RR', '../datas/geo_rep/outputs/')
 
     return results
 

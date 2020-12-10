@@ -1,6 +1,5 @@
 import argparse
 import datetime
-# import json
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -8,10 +7,8 @@ import torch.optim as optim
 from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
 from mmm import DataHandler as DH
 from mmm import DatasetGeotag
-# from mmm import ImbalancedDataSampler as IDS
 from mmm import RepGeoClassifier
 from torch.utils.tensorboard import SummaryWriter
-# from torchvision import transforms
 
 
 parser = argparse.ArgumentParser(description='Fine-tuning')
@@ -21,15 +18,15 @@ parser.add_argument(
     '--device_ids', '-D', default='0', type=str, metavar="'i, j, k'"
 )
 parser.add_argument(
-    '--inputs_path', '-I', default='../datas/rr/inputs', type=str,
+    '--inputs_path', '-I', default='../datas/geo_rep/inputs', type=str,
     metavar='path of directory containing input data'
 )
 parser.add_argument(
-    '--outputs_path', '-O', default='../datas/rr/outputs/learned',
+    '--outputs_path', '-O', default='../datas/geo_rep/outputs/learned',
     type=str, metavar='path of directory trained model saved'
 )
 parser.add_argument(
-    '--logdir', '-L', default='../datas/rr/log', type=str,
+    '--logdir', '-L', default='../datas/geo_rep/log', type=str,
     metavar='path of directory log saved'
 )
 parser.add_argument('--workers', '-W', default=4, type=int, metavar='N')
@@ -59,10 +56,8 @@ if __name__ == "__main__":
     stage = args.stage
 
     # データの読み込み先
-    # path_top = '../datas/rr/'
     input_path = args.inputs_path if args.inputs_path[-1:] == '/' \
         else args.inputs_path + '/'
-    # category = json.load(open(path_top + 'inputs/category.json', 'rb'))
     category = DH.loadJson('category.json', input_path)
     num_class = len(category)
     kwargs_DF = {
@@ -85,14 +80,12 @@ if __name__ == "__main__":
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        # sampler=IDS(train_dataset, callback_get_label=lambda d, i: None),
         shuffle=True,
         batch_size=batchsize,
         num_workers=numwork
     )
     # val_loader = torch.utils.data.DataLoader(
     #     val_dataset,
-    #     # sampler=IDS(val_dataset, callback_get_label=lambda d, i: None),
     #     shuffle=True,
     #     batch_size=batchsize,
     #     num_workers=numwork
@@ -105,7 +98,6 @@ if __name__ == "__main__":
 
     # maskの読み込み
     mask = DH.loadPickle(
-        # '{0:0=2}'.format(int(args.sim_threshold * 10)),
         'thr_5.pickle', input_path + 'comb_mask_{0}/'.format(stage)
     )
 
