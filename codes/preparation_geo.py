@@ -234,10 +234,11 @@ def make_geodataset(stage='finetune', phase='train', saved=True,
     from mmm import DataHandler as DH
     from tqdm import tqdm
 
-    datas = '../datas/geo_rep/inputs/local_df_area16_wocoth.pickle'
+    datas = '../datas/geo_rep/inputs/local_df_area16_wocoth_new.pickle'
     datas = DH.loadPickle(datas)
     mean, std = None, None
-    locates = list(datas['geo'])
+    locates = 'geo' if phase == 'train' else 'geo_val'
+    locates = list(datas[locates])
     temp = [item for gl in locates for item in gl]
     mean = np.mean(temp, axis=0)
     std = np.std(temp, axis=0)
@@ -307,10 +308,13 @@ def make_geodown_dataset(stage='gcn', phase='train', saved=True,
     from mmm import DataHandler as DH
     from tqdm import tqdm
 
-    datas = '../datas/geo_down/inputs/local_df_area16_wocoth_kl5.pickle'
+    # datas = '../datas/geo_down/inputs/local_df_area16_wocoth_kl5.pickle'
+    datas = '../datas/geo_rep/inputs/local_df_area16_wocoth_new.pickle'
     datas = DH.loadPickle(datas)
     mean, std = None, None
-    locates = list(datas['geo'])
+    # locates = list(datas['geo'])
+    locates = 'geo' if phase == 'train' else 'geo_val'
+    locates = list(datas[locates])
     temp = [item for gl in locates for item in gl]
     mean = np.mean(temp, axis=0)
     std = np.std(temp, axis=0)
@@ -532,7 +536,37 @@ def make_mask(sim_dict='geo_rep_kl5_kl_dict',
     return mask
 
 
-def make_simdict(filepath='../datas/geo_rep/inputs/geo/geo_rep_kl5_kl.pickle',
+def make_down_mask(sim_dict='geo_down_kl_dict', sim_thr=5, saved=True,
+                   reverse=True):
+    import numpy as np
+    from mmm import DataHandler as DH
+
+    dpath = '../datas/geo_down/inputs/'
+    sim_dict = sim_dict + '_r' if reverse else sim_dict
+    sim_dict = DH.loadPickle(sim_dict, dpath)
+    rep_category = DH.loadJson('upper_category.json', dpath)
+    category = DH.loadJson('category.json', dpath)
+    num_cat = len(category)
+    mask = np.zeros((num_cat, num_cat), int)
+
+    for tag1 in category:
+        for tag2 in category:
+            if tag1 == tag2:
+                continue
+
+            if tag1 in rep_category or tag2 in rep_category:
+                continue
+
+            if sim_dict[tag1][tag2] < sim_thr:
+                mask[category[tag1]][category[tag2]] = 1
+
+    if saved:
+        DH.savePickle(mask, 'mask_{0}.pickle'.format(sim_thr), dpath)
+
+    return mask
+
+
+def make_simdict(filepath='../datas/geo_down/inputs/geo_down_kl.pickle',
                  saved=True, reverse=True):
     import os
     from mmm import DataHandler as DH
@@ -557,7 +591,7 @@ def make_simdict(filepath='../datas/geo_rep/inputs/geo/geo_rep_kl5_kl.pickle',
     if saved:
         filename = os.path.splitext(os.path.basename(filepath))[0] + '_dict'
         filename = filename + '_r' if reverse else filename
-        DH.savePickle(sim_dict, filename, '../datas/geo_rep/inputs/geo/')
+        DH.savePickle(sim_dict, filename, '../datas/geo_down/inputs/')
 
     return sim_dict
 
@@ -674,12 +708,14 @@ def get_georep(saved=True, savepath='../datas/geo_rep/inputs/locate_dataset/',
 if __name__ == "__main__":
     # make_tag2loc('train')
     # -------------------------------------------------------------------------
+    # make_simdict(reverse=True)
     # make_simdict(reverse=False)
+    # make_down_mask(reverse=False)
     # get_georep()
-    make_geodown_dataset()
-    make_geodataset(stage='finetune', phase='train', refined=False, thr=1)
-    make_imlist()
-    make_mask(sim_thr=5)
-    make_backprop_ratio()
+    make_geodown_dataset(phase='validate')
+    # make_geodataset(stage='finetune', phase='train', refined=False, thr=1)
+    # make_imlist()
+    # make_mask(sim_thr=5)
+    # make_backprop_ratio()
     # -------------------------------------------------------------------------
     print('finish.')

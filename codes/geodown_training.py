@@ -8,13 +8,14 @@ from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
 from mmm import DataHandler as DH
 from mmm import DatasetGeotag
 from mmm import GeotagGCN
+from mmm import MakeBPWeight
 from torch.utils.tensorboard import SummaryWriter
 
 
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--batch_size', '-B', default=64, type=int, metavar='N')
+parser.add_argument('--batch_size', '-B', default=1, type=int, metavar='N')
 parser.add_argument(
-    '--device_ids', '-D', default='0, 1, 2, 3', type=str, metavar="'i, j, k'"
+    '--device_ids', '-D', default='0', type=str, metavar="'i, j, k'"
 )
 parser.add_argument(
     '--inputs_path', '-I', default='../datas/geo_down/inputs', type=str,
@@ -73,7 +74,7 @@ if __name__ == "__main__":
     }
 
     train_dataset = DatasetGeotag(**kwargs_DF['train'])
-    # val_dataset = DatasetGeotag(**kwargs_DF['validate'])
+    val_dataset = DatasetGeotag(**kwargs_DF['validate'])
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -81,29 +82,29 @@ if __name__ == "__main__":
         batch_size=batchsize,
         num_workers=numwork
     )
-    # val_loader = torch.utils.data.DataLoader(
-    #     val_dataset,
-    #     shuffle=True,
-    #     batch_size=batchsize,
-    #     num_workers=numwork
-    # )
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        shuffle=True,
+        batch_size=batchsize,
+        num_workers=numwork
+    )
 
     if torch.cuda.is_available():
         train_loader.pin_memory = True
-        # val_loader.pin_memory = True
+        val_loader.pin_memory = True
         cudnn.benchmark = True
 
     # maskの読み込み
-    mask = DH.loadPickle(
-        '{0:0=2}'.format(int(args.sim_threshold * 10)),
-        input_path + 'comb_mask/'
-    )
+    mask = DH.loadPickle('mask_5_r.pickle', input_path)
 
     # 誤差伝播の重みの読み込み
-    bp_weight = DH.loadNpy(
-        '{0:0=2}'.format(int(args.sim_threshold * 10)),
-        input_path + 'backprop_weight/'
-    )
+    # bp_weight = DH.loadNpy(
+    #     '{0:0=2}'.format(int(args.sim_threshold * 10)),
+    #     input_path + 'backprop_weight/'
+    # )
+    bp_weight = DH.loadNpy('backprop_weight', input_path)
+    bp_weight = bp_weight if bp_weight is not None \
+        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
 
     # 入力位置情報の正規化のためのパラメータ読み込み
     mean, std = DH.loadNpy('normalize_params', input_path)
@@ -154,33 +155,33 @@ if __name__ == "__main__":
     for epoch in range(args.start_epoch, epochs + 1):
         train_loss, train_recall, train_precision, _, _, _ \
             = model.train(train_loader)
-        # val_loss, val_recall, val_precision, _, _, _ \
-        #     = model.validate(val_loader)
+        val_loss, val_recall, val_precision, _, _, _ \
+            = model.validate(val_loader)
         print('epoch: {0}'.format(epoch))
         print('loss: {0}, recall: {1}, precision: {2}'.format(
             train_loss, train_recall, train_precision
         ))
-        # print('loss: {0}, recall: {1}, precision: {2}'.format(
-        #     val_loss, val_recall, val_precision
-        # ))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            val_loss, val_recall, val_precision
+        ))
         print('--------------------------------------------------------------')
 
-        # writer.add_scalars(
-        #     'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
-        # )
-        # writer.add_scalars(
-        #     'recall',
-        #     {'train_recall': train_recall, 'val_recall': val_recall},
-        #     epoch
-        # )
-        # writer.add_scalars(
-        #     'precision',
-        #     {
-        #         'train_precision': train_precision,
-        #         'val_precision': val_precision
-        #     },
-        #     epoch
-        # )
+        writer.add_scalars(
+            'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
+        )
+        writer.add_scalars(
+            'recall',
+            {'train_recall': train_recall, 'val_recall': val_recall},
+            epoch
+        )
+        writer.add_scalars(
+            'precision',
+            {
+                'train_precision': train_precision,
+                'val_precision': val_precision
+            },
+            epoch
+        )
 
         model.savemodel('{0:0=3}weight'.format(epoch), mpath)
 

@@ -361,6 +361,11 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
 
     # -------------------------------------------------------------------------
     # vis_fine_tuning
+
+    print('------------------------------------------------------------------')
+    print('Vis rep')
+    print('------------------------------------------------------------------')
+
     image_path = '../datas/fine_tuning/inputs/images/'
     image_normalization_mean = [0.485, 0.456, 0.406]
     image_normalization_std = [0.229, 0.224, 0.225]
@@ -434,9 +439,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
         momentum=0.9,
     )
 
-    # log_dir = data_path + 'log/fine_tuning'
-    # if os.path.isdir(log_dir):
-    #     shutil.rmtree(log_dir)
+    # logの出力先
     print('log -> {0}'.format(log_path + 'vis_rep'))
     writer = SummaryWriter(log_dir=log_path + 'vis_rep')
 
@@ -478,6 +481,11 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
 
     # -------------------------------------------------------------------------
     # vis_gcn
+
+    print('------------------------------------------------------------------')
+    print('Vis down')
+    print('------------------------------------------------------------------')
+
     image_path = '../datas/gcn/inputs/images/'
     image_normalization_mean = [0.485, 0.456, 0.406]
     image_normalization_std = [0.229, 0.224, 0.225]
@@ -631,9 +639,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
         backprop_weight=bp_weight
     )
 
-    # log_dir = data_path + 'log/gcn'
-    # if os.path.isdir(log_dir):
-    #     shutil.rmtree(log_dir)
+    # logの出力先
     print('log -> {0}'.format(log_path + 'vis_down'))
     writer = SummaryWriter(log_dir=log_path + 'vis_down')
 
@@ -730,12 +736,31 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
 
         return _mask
 
+    def geo_downmask(sim_thr=5, reverse=True):
+        sim_dict = base_path + 'geo_down_kl_dict'
+        sim_dict = sim_dict + '_r' if reverse else sim_dict
+        sim_dict = DH.loadPickle(sim_dict)
+        geo_category = {key: idx for idx, key in enumerate(geo_local_tags)}
+        downnum = len(geo_local_tags)
+        _mask = np.zeros((downnum, downnum), int)
+
+        for tag1 in down_category:
+            for tag2 in down_category:
+                if tag1 == tag2:
+                    continue
+
+                if sim_dict[tag1][tag2] < sim_thr:
+                    _mask[geo_category[tag1]][geo_category[tag2]] = 1
+
+        return _mask
+
     geo_rep_train, geo_rep_category, (mean, std) = geo_dataset('rep', 'train')
     geo_rep_validate, _, _ = geo_dataset('rep', 'validate')
     geo_rep_mask = geo_repmask(5, True)
-    geo_down_train, geo_down_category, _ = geo_dataset('down', 'train')
+    geo_down_train, geo_down_category, (down_mean, down_std) \
+        = geo_dataset('down', 'train')
     geo_down_validate, _, _ = geo_dataset('down', 'validate')
-    # geo_down_mask
+    geo_down_mask = geo_downmask(5, True)
 
     DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
     DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
@@ -745,9 +770,15 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
     DH.saveJson(geo_down_category, 'geo_down_category', input_path)
     DH.saveNpy((mean, std), 'normalize_params', input_path)
     DH.savePickle(geo_rep_mask, 'geo_rep_mask', input_path)
+    DH.savePickle(geo_down_mask, 'geo_down_mask', input_path)
 
     # -------------------------------------------------------------------------
     # geo_rep
+
+    print('------------------------------------------------------------------')
+    print('Geo rep')
+    print('------------------------------------------------------------------')
+
     num_class = len(geo_rep)
     kwargs_DF = {
         'train': {
@@ -795,12 +826,10 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
         fix_mask=geo_rep_mask,
         multigpu=False,
         backprop_weight=bp_weight,
-        network_setting={'class_num': num_class, 'mean': mean, 'std': std},
+        network_setting={'class_num': num_class, 'mean': mean, 'std': std}
     )
 
-    # log_dir = data_path + 'log/geo_rep'
-    # if os.path.isdir(log_dir):
-    #     shutil.rmtree(log_dir)
+    # logの出力先
     print('log -> {0}'.format(log_path + 'geo_rep'))
     writer = SummaryWriter(log_dir=log_path + 'geo_rep')
 
@@ -842,6 +871,11 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
 
     # -------------------------------------------------------------------------
     # geo_gcn
+
+    print('------------------------------------------------------------------')
+    print('Geo down')
+    print('------------------------------------------------------------------')
+
     num_class = len(geo_local_tags)
     kwargs_DF = {
         'train': {
@@ -877,7 +911,9 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
         val_loader.pin_memory = True
         cudnn.benchmark = True
 
-    bp_weight = None
+    bp_weight = make_backprop_ratio(
+        num_class, 'geo_down_bp_weight', geo_down_mask
+    )
 
     # 学習で用いるデータの設定や読み込み先
     gcn_settings = {
@@ -885,7 +921,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
         'filepaths': {
             'category': input_path + 'geo_down_category.json',
             'upper_category': input_path + 'geo_rep_category.json',
-            'relationship': input_path + 'geo_relationship.pickle',
+            'relationship': base_path + 'geo_relationship.pickle',
             'learned_weight':
             output_path + 'geo_rep_{0:0=3}.pth'.format(epochs[2])
         },
@@ -910,9 +946,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
         backprop_weight=bp_weight
     )
 
-    # log_dir = data_path + 'log/geo_down'
-    # if os.path.isdir(log_dir):
-    #     shutil.rmtree(log_dir)
+    # logの出力先
     print('log -> {0}'.format(log_path + 'geo_down'))
     writer = SummaryWriter(log_dir=log_path + 'geo_down')
 
@@ -954,7 +988,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
 
 
 if __name__ == "__main__":
-    small_graph_pair('airplane', 'castle', (2, 2, 2, 2))
-    small_graph_pair('airplane', 'castle', (20, 20, 20, 20))
+    small_graph_pair('airplane', 'castle', (1, 1, 1, 1))
+    # small_graph_pair('airplane', 'castle', (20, 20, 20, 20))
 
     print('finish.')

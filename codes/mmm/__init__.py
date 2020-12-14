@@ -1,3 +1,4 @@
+from .backprop_ratio import make_backprop_ratio as MakeBPWeight
 from .customized_multilabel_soft_margin_loss \
     import CustomizedMultiLabelSoftMarginLoss
 from .datahandler import DatasetFlickr, DatasetGeotag, DataHandler

@@ -16,6 +16,7 @@ class GCNModel(nn.Module):
         '''
         super().__init__()
         self._use_gpu = torch.cuda.is_available()
+        self._feature_dimension = feature_dimension
 
         upper_category = json.load(open(filepaths['upper_category'], 'r'))
         category = json.load(open(filepaths['category'], 'r'))
@@ -73,7 +74,7 @@ class GCNModel(nn.Module):
             inputs = inputs.cuda()
 
         output = self._before_fc(inputs)
-        output = output.view(inputs.shape[0], 2048)
+        output = output.view(inputs.shape[0], self._feature_dimension)
 
         return output
 
