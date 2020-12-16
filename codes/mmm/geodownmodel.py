@@ -1,4 +1,4 @@
-import json
+# import json
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,7 +9,7 @@ from .mymodel import MyBaseModel
 
 
 class GCNModel(nn.Module):
-    def __init__(self, *, num_class=37, filepaths={},
+    def __init__(self, category, rep_category, filepaths={},
                  feature_dimension=30, simplegeonet_settings={}):
         '''
         コンストラクタ
@@ -17,20 +17,21 @@ class GCNModel(nn.Module):
         super().__init__()
         self._use_gpu = torch.cuda.is_available()
         self._feature_dimension = feature_dimension
+        self.num_classes = len(category)
 
-        upper_category = json.load(open(filepaths['upper_category'], 'r'))
-        category = json.load(open(filepaths['category'], 'r'))
+        # upper_category = json.load(open(filepaths['upper_category'], 'r'))
+        # category = json.load(open(filepaths['category'], 'r'))
         relationship = DataHandler.loadPickle(filepaths['relationship'])
         CNN_weight = torch.load(filepaths['learned_weight'])
 
         # H_0の作成
         fc_weight = np.array(CNN_weight['fc3.weight'].cpu(), dtype=np.float64)
-        H_0 = np.zeros((num_class, feature_dimension))
-        for label, index in upper_category.items():
+        H_0 = np.zeros((self.num_classes, feature_dimension))
+        for label, index in rep_category.items():
             H_0[category[label]] = fc_weight[index]
 
         # Aの作成
-        A = np.zeros((num_class, num_class), dtype=int)
+        A = np.zeros((self.num_classes, self.num_classes), dtype=int)
         all_category_labels = list(category.keys())
 
         # for label, _ in upper_category.items():

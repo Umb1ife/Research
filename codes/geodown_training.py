@@ -33,11 +33,91 @@ parser.add_argument('--epochs', '-E', default=20, type=int, metavar='N')
 parser.add_argument(
     '--learning_rate', '-lr', default=0.1, type=float, metavar='N'
 )
-parser.add_argument(
-    '--sim_threshold', '-Sth', default=0.4, type=float, metavar='N'
-)
 parser.add_argument('--start_epoch', default=1, type=int, metavar='N')
 parser.add_argument('--workers', '-W', default=4, type=int, metavar='N')
+
+
+def geo_dataset(rep_category, local_category, phase='train'):
+    from tqdm import tqdm
+
+    print('preparing dataset: {0} ...'.format(phase))
+    lda = DH.loadPickle('local_df_area16_wocoth_new.pickle', base_path)
+    down_category = sorted(list(set(local_category) - set(rep_category)))
+
+    # datas = lda
+    locates = 'geo' if phase == 'train' else 'geo_val'
+    locates = list(lda[locates])
+
+    locates = [item if len(item) >= 1 else [] for item in locates]
+    tags = list(lda.index)
+    temp_dict = {key: [] for item in locates for key in item}
+    for item, tag in zip(locates, tags):
+        for locate in item:
+            temp_dict[locate].append(tag)
+
+    for key, val in temp_dict.items():
+        temp_dict[key] = sorted(list(set(val)))
+
+    tags_dict = {key: val for val, key in enumerate(local_category)}
+
+    locate_tags_dictlist = []
+    for key, val in tqdm(temp_dict.items()):
+        temp = [tags_dict[label] for label in val if label in down_category]
+        if temp:
+            locate_tags_dictlist.append({
+                'labels': temp,
+                'locate': list(key)
+            })
+
+    return locate_tags_dictlist
+
+
+def geo_downmask(rep_category, local_category, sim_thr=5, reverse=True,
+                 saved=True, save_path='../datas/geo_down/inputs/'):
+    import numpy as np
+
+    print('calculating mask ...')
+    geo_category = {key: idx for idx, key in enumerate(local_category)}
+    down_category = sorted(list(set(local_category) - set(rep_category)))
+    num_classes = len(local_category)
+    _mask = np.zeros((num_classes, num_classes), int)
+
+    # def make_simdict(filepath='../datas/bases/geo_down_kl.pickle'):
+    #     from tqdm import tqdm
+
+    #     dists = DH.loadPickle(filepath)
+    #     sim_dict = {}
+
+    #     for _, item in tqdm(dists.iterrows(), total=dists.shape[0]):
+    #         left, right = item['comb']
+    #         left, right = (right, left) if reverse else (left, right)
+
+    #         if left not in sim_dict:
+    #             sim_dict[left] = {}
+
+    #         if right not in sim_dict:
+    #             sim_dict[right] = {}
+
+    #         sim_dict[left][right] = item['sim(a,b)']
+    #         sim_dict[right][left] = item['sim(b,a)']
+
+    #     return sim_dict
+
+    # sim_dict = make_simdict()
+    sim_dict = DH.loadPickle('geo_down_simdict', base_path)
+    for tag1 in down_category:
+        for tag2 in down_category:
+            if tag1 == tag2:
+                continue
+
+            sim = sim_dict[tag2][tag1] if reverse else sim_dict[tag1][tag2]
+            if sim < sim_thr:
+                _mask[geo_category[tag1]][geo_category[tag2]] = 1
+
+    if saved:
+        DH.savePickle(_mask, 'mask_{0}'.format(sim_thr), save_path)
+
+    return _mask
 
 
 if __name__ == "__main__":
@@ -56,20 +136,30 @@ if __name__ == "__main__":
     numwork = args.workers
 
     # データの読み込み先
+    base_path = '../datas/bases/'
     input_path = args.inputs_path if args.inputs_path[-1:] == '/' \
         else args.inputs_path + '/'
+
+    rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
     num_class = len(category)
+
+    # データの作成
+    geo_down_train = geo_dataset(rep_category, category, 'train')
+    geo_down_validate = geo_dataset(rep_category, category, 'validate')
+    DH.savePickle(geo_down_train, 'geo_down_train', input_path)
+    DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
+
     kwargs_DF = {
         'train': {
             'class_num': num_class,
             'transform': torch.tensor,
-            'data_path': input_path + 'locate_dataset/gcn_train.pickle'
+            'data_path': input_path + 'geo_down_train.pickle'
         },
         'validate': {
             'class_num': num_class,
             'transform': torch.tensor,
-            'data_path': input_path + 'locate_dataset/gcn_validate.pickle'
+            'data_path': input_path + 'geo_down_validate.pickle'
         },
     }
 
@@ -95,13 +185,10 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    mask = DH.loadPickle('mask_5_r.pickle', input_path)
+    mask = DH.loadPickle('mask_5.pickle', input_path)
+    mask = geo_downmask(rep_category, category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    # bp_weight = DH.loadNpy(
-    #     '{0:0=2}'.format(int(args.sim_threshold * 10)),
-    #     input_path + 'backprop_weight/'
-    # )
     bp_weight = DH.loadNpy('backprop_weight', input_path)
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
@@ -111,21 +198,27 @@ if __name__ == "__main__":
 
     # 学習で用いるデータの設定や読み込み先
     gcn_settings = {
-        'num_class': num_class,
+        # 'num_class': num_class,
+        'category': category,
+        'rep_category': rep_category,
+        # 'relationship': base_path + 'geo_relationship.pickle',
+        # 'learned_weight': input_path + '200weight.pth',
         'filepaths': {
-            'category': input_path + 'category.json',
-            'upper_category': input_path + 'upper_category.json',
-            'relationship': input_path + 'relationship.pickle',
+            # 'category': input_path + 'category.json',
+            # 'upper_category': input_path + 'upper_category.json',
+            'relationship': base_path + 'geo_relationship.pickle',
             'learned_weight': input_path + '200weight.pth'
         },
         'feature_dimension': 30,
-        'simplegeonet_settings': {'class_num': 37, 'mean': mean, 'std': std}
+        'simplegeonet_settings': {
+            'class_num': len(rep_category), 'mean': mean, 'std': std
+        }
     }
 
     # modelの設定
     model = GeotagGCN(
         class_num=num_class,
-        loss_function=MyLossFunction(),
+        loss_function=MyLossFunction(reduction='none'),
         optimizer=optim.SGD,
         learningrate=args.learning_rate,
         momentum=0.9,
@@ -151,7 +244,7 @@ if __name__ == "__main__":
         log_dir=log_dir + '{0:%Y%m%d}_{0:%H%M}'.format(now)
     )
 
-    model.savemodel('{0:0=3}weight'.format(0), mpath)
+    model.savemodel('000weight.pth', mpath)
     for epoch in range(args.start_epoch, epochs + 1):
         train_loss, train_recall, train_precision, _, _, _ \
             = model.train(train_loader)

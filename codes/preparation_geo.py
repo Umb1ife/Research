@@ -566,7 +566,7 @@ def make_down_mask(sim_dict='geo_down_kl_dict', sim_thr=5, saved=True,
     return mask
 
 
-def make_simdict(filepath='../datas/geo_down/inputs/geo_down_kl.pickle',
+def make_simdict(filepath='../datas/bases/geo_down_kl.pickle',
                  saved=True, reverse=True):
     import os
     from mmm import DataHandler as DH
@@ -575,7 +575,7 @@ def make_simdict(filepath='../datas/geo_down/inputs/geo_down_kl.pickle',
     dists = DH.loadPickle(filepath)
     sim_dict = {}
 
-    for _, item in tqdm(dists.iterrows()):
+    for _, item in tqdm(dists.iterrows(), total=dists.shape[0]):
         left, right = item['comb']
         left, right = (right, left) if reverse else (left, right)
 
@@ -591,7 +591,7 @@ def make_simdict(filepath='../datas/geo_down/inputs/geo_down_kl.pickle',
     if saved:
         filename = os.path.splitext(os.path.basename(filepath))[0] + '_dict'
         filename = filename + '_r' if reverse else filename
-        DH.savePickle(sim_dict, filename, '../datas/geo_down/inputs/')
+        DH.savePickle(sim_dict, filename, '../datas/bases/')
 
     return sim_dict
 
@@ -709,10 +709,10 @@ if __name__ == "__main__":
     # make_tag2loc('train')
     # -------------------------------------------------------------------------
     # make_simdict(reverse=True)
-    # make_simdict(reverse=False)
+    make_simdict(reverse=False)
     # make_down_mask(reverse=False)
     # get_georep()
-    make_geodown_dataset(phase='validate')
+    # make_geodown_dataset(phase='validate')
     # make_geodataset(stage='finetune', phase='train', refined=False, thr=1)
     # make_imlist()
     # make_mask(sim_thr=5)

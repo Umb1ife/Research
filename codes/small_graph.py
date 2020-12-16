@@ -135,7 +135,7 @@ def all_small_graph_pairs():
     return
 
 
-def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
+def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20), reset_dir=True):
     import glob
     import numpy as np
     import os
@@ -164,23 +164,25 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
     numwork = 4
     data_path = '../datas/small_graph/'
 
-    # ディレクトリのリセット
     input_path = data_path + 'inputs/'
-    if os.path.isdir(input_path):
-        shutil.rmtree(input_path)
-
     output_path = data_path + 'outputs/'
-    if os.path.isdir(output_path):
-        shutil.rmtree(output_path)
-
     log_path = data_path + 'log/'
-    if os.path.isdir(log_path):
-        shutil.rmtree(log_path)
+
+    if reset_dir:
+        # ディレクトリのリセット
+        if os.path.isdir(input_path):
+            shutil.rmtree(input_path)
+
+        if os.path.isdir(output_path):
+            shutil.rmtree(output_path)
+
+        if os.path.isdir(log_path):
+            shutil.rmtree(log_path)
 
     # -------------------------------------------------------------------------
     base_path = data_path + 'bases/'
-    category = DH.loadJson('category.json', base_path)
-    category = list(category.keys())
+    # category = DH.loadJson('category.json', base_path)
+    # category = list(category.keys())
     lda = DH.loadPickle('local_df_area16_wocoth_new.pickle', base_path)
     rda = DH.loadPickle('rep_df_area16_wocoth.pickle', base_path)
     grd = DH.loadPickle('geo_rep_df_area16_kl5.pickle', base_path)
@@ -757,8 +759,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
     geo_rep_train, geo_rep_category, (mean, std) = geo_dataset('rep', 'train')
     geo_rep_validate, _, _ = geo_dataset('rep', 'validate')
     geo_rep_mask = geo_repmask(5, True)
-    geo_down_train, geo_down_category, (down_mean, down_std) \
-        = geo_dataset('down', 'train')
+    geo_down_train, geo_down_category, _ = geo_dataset('down', 'train')
     geo_down_validate, _, _ = geo_dataset('down', 'validate')
     geo_down_mask = geo_downmask(5, True)
 
@@ -936,7 +937,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
     # modelの設定
     model = GeotagGCN(
         class_num=num_class,
-        loss_function=MyLossFunction(),
+        loss_function=MyLossFunction(reduction='none'),
         learningrate=0.1,
         momentum=0.9,
         weight_decay=1e-4,
@@ -988,6 +989,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20)):
 
 
 if __name__ == "__main__":
+    all_small_graph_pairs()
     small_graph_pair('airplane', 'castle', (1, 1, 1, 1))
     # small_graph_pair('airplane', 'castle', (20, 20, 20, 20))
 

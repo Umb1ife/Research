@@ -11,10 +11,10 @@ def plot_map(stage='finetune', phase='train', refined=False,
     # ).values()
 
     from mmm import DataHandler as DH
-    datas = DH.loadPickle('finetune_train.pickle',
-                          '../datas/geo_rep/inputs/locate_dataset')
-    category = DH.loadJson('category.json', '../datas/geo_rep/inputs/')
-    mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
+    datas = DH.loadPickle('geo_down_train.pickle',
+                          '../datas/small_graph/inputs/')
+    category = DH.loadJson('geo_down_category.json', '../datas/small_graph/inputs/')
+    mean, std = DH.loadNpy('normalize_params.npy', '../datas/small_graph/inputs')
     # -------------------------------------------------------------------------
 
     category = list(category.keys())
