@@ -259,22 +259,26 @@ if __name__ == "__main__":
         ))
         print('--------------------------------------------------------------')
 
-        writer.add_scalars(
-            'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
-        )
-        writer.add_scalars(
-            'recall',
-            {'train_recall': train_recall, 'val_recall': val_recall},
-            epoch
-        )
-        writer.add_scalars(
-            'precision',
-            {
-                'train_precision': train_precision,
-                'val_precision': val_precision
-            },
-            epoch
-        )
+        writer.add_scalar('loss', train_loss, epoch)
+        writer.add_scalar('recall', train_recall, epoch)
+        writer.add_scalar('precision', train_precision, epoch)
+
+        # writer.add_scalars(
+        #     'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
+        # )
+        # writer.add_scalars(
+        #     'recall',
+        #     {'train_recall': train_recall, 'val_recall': val_recall},
+        #     epoch
+        # )
+        # writer.add_scalars(
+        #     'precision',
+        #     {
+        #         'train_precision': train_precision,
+        #         'val_precision': val_precision
+        #     },
+        #     epoch
+        # )
 
         model.savemodel('{0:0=3}weight'.format(epoch), mpath)
 
