@@ -100,11 +100,11 @@ def all_small_graph_pairs():
 
     category = DH.loadJson('category.json', '../datas/fine_tuning/inputs')
     category = list(category.keys())
-    lda = '../datas/rr/inputs/geo/local_df_area16_wocoth_kl5.pickle'
+    lda = '../datas/geo_rep/inputs/geo/local_df_area16_wocoth_kl5.pickle'
     lda = DH.loadPickle(lda)
     rda = '../datas/prepare/rep_df_area16_wocoth.pickle'
     rda = DH.loadPickle(rda)
-    grd = '../datas/rr/inputs/geo/geo_rep_df_area16_kl5.pickle'
+    grd = '../datas/geo_rep/inputs/geo/geo_rep_df_area16_kl5.pickle'
     grd = DH.loadPickle(grd)
     grd_idx = set(grd.index)
 
@@ -135,7 +135,7 @@ def all_small_graph_pairs():
     return
 
 
-def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
+def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20), reset_dir=True):
     import glob
     import numpy as np
     import os
@@ -148,6 +148,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
     from mmm import DatasetFlickr
     from mmm import DatasetGeotag
     from mmm import FinetuneModel
+    from mmm import GeotagGCN
     from mmm import ImbalancedDataSampler as IDS
     from mmm import MultiLabelGCN
     from mmm import RepGeoClassifier
@@ -155,31 +156,52 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
     from torchvision import transforms
     from tqdm import tqdm
 
-    category = DH.loadJson('category.json', '../datas/fine_tuning/inputs')
-    category = list(category.keys())
-    lda = '../datas/rr/inputs/geo/local_df_area16_wocoth_kl5.pickle'
-    lda = DH.loadPickle(lda)
-    rda = '../datas/prepare/rep_df_area16_wocoth.pickle'
-    rda = DH.loadPickle(rda)
-    grd = '../datas/rr/inputs/geo/geo_rep_df_area16_kl5.pickle'
-    grd = DH.loadPickle(grd)
+    # -------------------------------------------------------------------------
+    # 初期設定
+    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    batchsize = 16
+    numwork = 4
+    data_path = '../datas/small_graph/'
+
+    input_path = data_path + 'inputs/'
+    output_path = data_path + 'outputs/'
+    log_path = data_path + 'log/'
+
+    if reset_dir:
+        # ディレクトリのリセット
+        if os.path.isdir(input_path):
+            shutil.rmtree(input_path)
+
+        if os.path.isdir(output_path):
+            shutil.rmtree(output_path)
+
+        if os.path.isdir(log_path):
+            shutil.rmtree(log_path)
+
+    # -------------------------------------------------------------------------
+    base_path = data_path + 'bases/'
+    # category = DH.loadJson('category.json', base_path)
+    # category = list(category.keys())
+    lda = DH.loadPickle('local_df_area16_wocoth_new.pickle', base_path)
+    rda = DH.loadPickle('rep_df_area16_wocoth.pickle', base_path)
+    grd = DH.loadPickle('geo_rep_df_area16_kl5.pickle', base_path)
     grd_idx = set(grd.index)
 
     sgt1 = small_graph_tags(tag1, lda, rda, grd_idx)
     sgt2 = small_graph_tags(tag2, lda, rda, grd_idx)
     sgp = small_graph_pairs(sgt1, sgt2, lda, grd)
 
-    data_path = '../datas/small_graph/'
-    input_path = data_path + 'inputs/'
     vis_rep = sorted([tag1, tag2])
     geo_rep = sorted(sgp[5])
     down_category = sorted(sgp[3] + sgp[4])
     vis_local_tags = sorted(list(set(vis_rep) | set(down_category)))
+    geo_local_tags = sorted(list(set(geo_rep) | set(down_category)))
 
     # -------------------------------------------------------------------------
     # 小規模グラフでのデータセット作成(visual)
     def vis_mask(sim_thr):
-        all_sim = DH.loadPickle('all_sim.pickle', '../datas/prepare/')
+        all_sim = DH.loadPickle('all_sim.pickle', base_path)
         all_sim = all_sim.values.tolist()
         local_dict = lda.to_dict('index')
         represent_dict = rda.to_dict('index')
@@ -319,17 +341,17 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
     if np.sum(ft_mask) != 0:
         raise Exception
 
-    vat = vis_annos(vis_rep, 'rep', 'train')
-    vav = vis_annos(vis_rep, 'rep', 'validate')
+    vrat = vis_annos(vis_rep, 'rep', 'train')
+    vrav = vis_annos(vis_rep, 'rep', 'validate')
     vdat = vis_annos(down_category, 'down', 'train')
     vdav = vis_annos(down_category, 'down', 'validate')
 
     DH.savePickle(ft_mask, 'vis_ft_mask', input_path)
     DH.savePickle(gcn_mask, 'vis_gcn_mask', input_path)
-    DH.saveJson(vat, 'vat.json', input_path)
-    DH.saveJson(vav, 'vav.json', input_path)
-    DH.saveJson(vdat, 'vdat.json', input_path)
-    DH.saveJson(vdav, 'vdav.json', input_path)
+    DH.saveJson(vrat, 'vis_rep_anno_train.json', input_path)
+    DH.saveJson(vrav, 'vis_rep_anno_validate.json', input_path)
+    DH.saveJson(vdat, 'vis_down_anno_train.json', input_path)
+    DH.saveJson(vdav, 'vis_down_anno_validate.json', input_path)
     DH.saveJson(
         {key: idx for idx, key in enumerate(vis_rep)},
         'vis_rep_category.json', input_path
@@ -338,22 +360,21 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         {key: idx for idx, key in enumerate(vis_local_tags)},
         'vis_down_category.json', input_path
     )
-    # -------------------------------------------------------------------------
-    # 初期設定
-    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    batchsize = 16
-    numwork = 4
 
     # -------------------------------------------------------------------------
     # vis_fine_tuning
+
+    print('------------------------------------------------------------------')
+    print('Vis rep')
+    print('------------------------------------------------------------------')
+
     image_path = '../datas/fine_tuning/inputs/images/'
     image_normalization_mean = [0.485, 0.456, 0.406]
     image_normalization_std = [0.229, 0.224, 0.225]
     kwargs_DF = {
         'train': {
             'filenames': {
-                'Annotation': input_path + 'vat.json',
+                'Annotation': input_path + 'vis_rep_anno_train.json',
                 'Category_to_Index': input_path + 'vis_rep_category.json'
             },
             'transform': transforms.Compose(
@@ -372,7 +393,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         },
         'validate': {
             'filenames': {
-                'Annotation': input_path + 'vav.json',
+                'Annotation': input_path + 'vis_rep_anno_validate.json',
                 'Category_to_Index': input_path + 'vis_rep_category.json'
             },
             'transform': transforms.Compose(
@@ -420,13 +441,11 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         momentum=0.9,
     )
 
-    log_dir = data_path + 'log/fine_tuning'
-    if os.path.isdir(log_dir):
-        shutil.rmtree(log_dir)
-    print('log -> {0}'.format(log_dir))
-    writer = SummaryWriter(log_dir=log_dir)
+    # logの出力先
+    print('log -> {0}'.format(log_path + 'vis_rep'))
+    writer = SummaryWriter(log_dir=log_path + 'vis_rep')
 
-    model.savemodel('000cnn.pth', data_path + 'outputs')
+    model.savemodel('vis_rep_000.pth', output_path)
     for epoch in range(epochs[0]):
         train_loss, train_recall, train_precision, _, _, _ \
             = model.train(train_loader)
@@ -459,17 +478,23 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
             epoch
         )
 
-    model.savemodel('200cnn.pth', data_path + 'outputs')
+    model.savemodel('vis_rep_{0:0=3}.pth'.format(epochs[0]), output_path)
     writer.close()
+
     # -------------------------------------------------------------------------
     # vis_gcn
+
+    print('------------------------------------------------------------------')
+    print('Vis down')
+    print('------------------------------------------------------------------')
+
     image_path = '../datas/gcn/inputs/images/'
     image_normalization_mean = [0.485, 0.456, 0.406]
     image_normalization_std = [0.229, 0.224, 0.225]
     kwargs_DF = {
         'train': {
             'filenames': {
-                'Annotation': input_path + 'vdat.json',
+                'Annotation': input_path + 'vis_down_anno_train.json',
                 'Category_to_Index': input_path + 'vis_down_category.json'
             },
             'transform': transforms.Compose(
@@ -488,7 +513,7 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         },
         'validate': {
             'filenames': {
-                'Annotation': input_path + 'vdav.json',
+                'Annotation': input_path + 'vis_down_anno_validate.json',
                 'Category_to_Index': input_path + 'vis_down_category.json'
             },
             'transform': transforms.Compose(
@@ -535,8 +560,6 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         GCNのトレーニングの際，正例が負例に対し極端に少なくなることに対し，
         誤差伝播の重みを変えることで対応するための割合の取得．
         '''
-
-        # ---------------------------------------------------------------------
         # データの読み込み
         loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -600,8 +623,9 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         'filepaths': {
             'category': input_path + 'vis_down_category.json',
             'upper_category': input_path + 'vis_rep_category.json',
-            'relationship': input_path + 'vis_relationship.pickle',
-            'learned_weight': data_path + 'outputs/200cnn.pth'
+            'relationship': base_path + 'vis_relationship.pickle',
+            'learned_weight':
+            output_path + 'vis_rep_{0:0=3}.pth'.format(epochs[0])
         },
         'feature_dimension': 2048
     }
@@ -617,13 +641,11 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         backprop_weight=bp_weight
     )
 
-    log_dir = data_path + 'log/gcn'
-    if os.path.isdir(log_dir):
-        shutil.rmtree(log_dir)
-    print('log -> {0}'.format(log_dir))
-    writer = SummaryWriter(log_dir=log_dir)
+    # logの出力先
+    print('log -> {0}'.format(log_path + 'vis_down'))
+    writer = SummaryWriter(log_dir=log_path + 'vis_down')
 
-    model.savemodel('00weight', data_path + 'outputs')
+    model.savemodel('vis_down_000.pth', output_path)
     for epoch in range(epochs[1]):
         train_loss, train_recall, train_precision, _, _, _ \
             = model.train(train_loader)
@@ -656,15 +678,15 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
             epoch
         )
 
-    model.savemodel('20weight', data_path + 'outputs')
+    model.savemodel('vis_down_{0:0=3}.pth'.format(epochs[1]), output_path)
     writer.close()
 
     # -------------------------------------------------------------------------
     # 小規模グラフでのデータセット作成(geo)
-    def geo_dataset(phase='train'):
-        datas = '../datas/rr/inputs/local_df_area16_wocoth.pickle'
-        datas = DH.loadPickle(datas)
-        locates = list(datas['geo'])
+    def geo_dataset(stage='rep', phase='train'):
+        datas = lda
+        locates = 'geo' if phase == 'train' else 'geo_val'
+        locates = list(datas[locates])
         temp = [item for gl in locates for item in gl]
         mean = np.mean(temp, axis=0)
         std = np.std(temp, axis=0)
@@ -679,11 +701,17 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         for key, val in temp_dict.items():
             temp_dict[key] = sorted(list(set(val)))
 
-        tags_dict = {key: val for val, key in enumerate(geo_rep)}
+        if stage == 'rep':
+            tags_dict = geo_rep[:]
+            flgs = geo_rep[:]
+        else:
+            tags_dict = geo_local_tags[:]
+            flgs = down_category[:]
+        tags_dict = {key: val for val, key in enumerate(tags_dict)}
 
         locate_tags_dictlist = []
         for key, val in temp_dict.items():
-            temp = [tags_dict[label] for label in val if label in tags_dict]
+            temp = [tags_dict[label] for label in val if label in flgs]
             if temp:
                 locate_tags_dictlist.append({
                     'labels': temp,
@@ -692,8 +720,8 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
 
         return locate_tags_dictlist, tags_dict, (mean, std)
 
-    def geo_mask(sim_thr=5, reverse=True):
-        sim_dict = '../datas/rr/inputs/geo/geo_rep_kl5_kl_dict'
+    def geo_repmask(sim_thr=5, reverse=True):
+        sim_dict = base_path + 'geo_rep_kl5_kl_dict'
         sim_dict = sim_dict + '_r' if reverse else sim_dict
         sim_dict = DH.loadPickle(sim_dict)
         geo_rep_category = {key: idx for idx, key in enumerate(geo_rep)}
@@ -710,18 +738,48 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
 
         return _mask
 
-    geo_rep_train, geo_rep_category, (mean, std) = geo_dataset('train')
-    geo_rep_validate, _, _ = geo_dataset('validate')
-    geo_rep_mask = geo_mask(5, True)
+    def geo_downmask(sim_thr=5, reverse=True):
+        sim_dict = base_path + 'geo_down_kl_dict'
+        sim_dict = sim_dict + '_r' if reverse else sim_dict
+        sim_dict = DH.loadPickle(sim_dict)
+        geo_category = {key: idx for idx, key in enumerate(geo_local_tags)}
+        downnum = len(geo_local_tags)
+        _mask = np.zeros((downnum, downnum), int)
+
+        for tag1 in down_category:
+            for tag2 in down_category:
+                if tag1 == tag2:
+                    continue
+
+                if sim_dict[tag1][tag2] < sim_thr:
+                    _mask[geo_category[tag1]][geo_category[tag2]] = 1
+
+        return _mask
+
+    geo_rep_train, geo_rep_category, (mean, std) = geo_dataset('rep', 'train')
+    geo_rep_validate, _, _ = geo_dataset('rep', 'validate')
+    geo_rep_mask = geo_repmask(5, True)
+    geo_down_train, geo_down_category, _ = geo_dataset('down', 'train')
+    geo_down_validate, _, _ = geo_dataset('down', 'validate')
+    geo_down_mask = geo_downmask(5, True)
 
     DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
     DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
     DH.saveJson(geo_rep_category, 'geo_rep_category', input_path)
-    DH.saveNpy((mean, std), 'rep_normalize_params', input_path)
+    DH.savePickle(geo_down_train, 'geo_down_train', input_path)
+    DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
+    DH.saveJson(geo_down_category, 'geo_down_category', input_path)
+    DH.saveNpy((mean, std), 'normalize_params', input_path)
     DH.savePickle(geo_rep_mask, 'geo_rep_mask', input_path)
+    DH.savePickle(geo_down_mask, 'geo_down_mask', input_path)
 
     # -------------------------------------------------------------------------
     # geo_rep
+
+    print('------------------------------------------------------------------')
+    print('Geo rep')
+    print('------------------------------------------------------------------')
+
     num_class = len(geo_rep)
     kwargs_DF = {
         'train': {
@@ -769,16 +827,14 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
         fix_mask=geo_rep_mask,
         multigpu=False,
         backprop_weight=bp_weight,
-        network_setting={'class_num': num_class, 'mean': mean, 'std': std},
+        network_setting={'class_num': num_class, 'mean': mean, 'std': std}
     )
 
-    log_dir = data_path + 'log/geo_rep'
-    if os.path.isdir(log_dir):
-        shutil.rmtree(log_dir)
-    print('log -> {0}'.format(log_dir))
-    writer = SummaryWriter(log_dir=log_dir)
+    # logの出力先
+    print('log -> {0}'.format(log_path + 'geo_rep'))
+    writer = SummaryWriter(log_dir=log_path + 'geo_rep')
 
-    model.savemodel('rep_000cnn.pth', data_path + 'outputs')
+    model.savemodel('geo_rep_000.pth', output_path)
     for epoch in range(epochs[2]):
         train_loss, train_recall, train_precision, _, _, _ \
             = model.train(train_loader)
@@ -811,11 +867,130 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200)):
             epoch
         )
 
-    model.savemodel('rep_200cnn.pth', data_path + 'outputs')
+    model.savemodel('geo_rep_{0:0=3}.pth'.format(epochs[2]), output_path)
+    writer.close()
+
+    # -------------------------------------------------------------------------
+    # geo_gcn
+
+    print('------------------------------------------------------------------')
+    print('Geo down')
+    print('------------------------------------------------------------------')
+
+    num_class = len(geo_local_tags)
+    kwargs_DF = {
+        'train': {
+            'class_num': num_class,
+            'transform': torch.tensor,
+            'data_path': input_path + 'geo_down_train.pickle'
+        },
+        'validate': {
+            'class_num': num_class,
+            'transform': torch.tensor,
+            'data_path': input_path + 'geo_down_validate.pickle'
+        },
+    }
+
+    train_dataset = DatasetGeotag(**kwargs_DF['train'])
+    val_dataset = DatasetGeotag(**kwargs_DF['validate'])
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        shuffle=True,
+        batch_size=1,
+        num_workers=numwork
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        shuffle=True,
+        batch_size=1,
+        num_workers=numwork
+    )
+
+    if torch.cuda.is_available():
+        train_loader.pin_memory = True
+        val_loader.pin_memory = True
+        cudnn.benchmark = True
+
+    bp_weight = make_backprop_ratio(
+        num_class, 'geo_down_bp_weight', geo_down_mask
+    )
+
+    # 学習で用いるデータの設定や読み込み先
+    gcn_settings = {
+        'num_class': num_class,
+        'filepaths': {
+            'category': input_path + 'geo_down_category.json',
+            'upper_category': input_path + 'geo_rep_category.json',
+            'relationship': base_path + 'geo_relationship.pickle',
+            'learned_weight':
+            output_path + 'geo_rep_{0:0=3}.pth'.format(epochs[2])
+        },
+        'feature_dimension': 30,
+        'simplegeonet_settings': {
+            'class_num': len(geo_rep),
+            'mean': mean,
+            'std': std
+        }
+    }
+
+    # modelの設定
+    model = GeotagGCN(
+        class_num=num_class,
+        loss_function=MyLossFunction(reduction='none'),
+        learningrate=0.1,
+        momentum=0.9,
+        weight_decay=1e-4,
+        fix_mask=geo_down_mask,
+        network_setting=gcn_settings,
+        multigpu=False,
+        backprop_weight=bp_weight
+    )
+
+    # logの出力先
+    print('log -> {0}'.format(log_path + 'geo_down'))
+    writer = SummaryWriter(log_dir=log_path + 'geo_down')
+
+    model.savemodel('geo_down_000.pth', output_path)
+    for epoch in range(epochs[3]):
+        train_loss, train_recall, train_precision, _, _, _ \
+            = model.train(train_loader)
+        val_loss, val_recall, val_precision, _, _, _ \
+            = model.validate(val_loader)
+
+        print(
+            'epoch %d, loss: %.4f val_loss: %.4f train_recall: %.4f \
+                val_recall: %.4f train_precision: %.4f val_precision: %.4f'
+            % (
+                epoch, train_loss, val_loss, train_recall,
+                val_recall, train_precision, val_precision
+            )
+        )
+
+        writer.add_scalars(
+            'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
+        )
+        writer.add_scalars(
+            'recall',
+            {'train_recall': train_recall, 'val_recall': val_recall},
+            epoch
+        )
+        writer.add_scalars(
+            'precision',
+            {
+                'train_precision': train_precision,
+                'val_precision': val_precision
+            },
+            epoch
+        )
+
+    model.savemodel('geo_down_{0:0=3}.pth'.format(epochs[3]), output_path)
     writer.close()
 
 
 if __name__ == "__main__":
-    small_graph_pair('airplane', 'castle', (20, 20, 200))
+    # all_small_graph_pairs()
+    small_graph_pair('church', 'skyscraper', (1, 1, 1, 1), False)
+    # small_graph_pair('airplane', 'castle', (20, 20, 20, 20))
 
     print('finish.')

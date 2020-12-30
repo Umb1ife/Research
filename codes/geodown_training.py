@@ -6,38 +6,53 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
 from mmm import DataHandler as DH
-from mmm import DatasetFlickr
-from mmm import MultiLabelGCN
+from mmm import DatasetGeotag
+from mmm import GeotagGCN
+from mmm import GeoUtils as GU
+from mmm import MakeBPWeight
 from torch.utils.tensorboard import SummaryWriter
-from torchvision import transforms
 
 
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--batch_size', '-B', default=64, type=int, metavar='N')
+parser.add_argument('--epochs', '-E', default=20, type=int, metavar='N')
+parser.add_argument('--batch_size', '-B', default=1, type=int, metavar='N')
+parser.add_argument('--load_mask', action='store_true')
+parser.add_argument('--load_backprop_weight', action='store_true')
 parser.add_argument(
-    '--device_ids', '-D', default='0, 1, 2, 3', type=str, metavar="'i, j, k'"
+    '--device_ids', '-D', default='0', type=str, metavar="'i, j, k'"
 )
 parser.add_argument(
-    '--inputs_path', '-I', default='../datas/gcn/inputs', type=str,
+    '--inputs_path', '-I', default='../datas/geo_down/inputs', type=str,
     metavar='path of directory containing input data'
 )
 parser.add_argument(
-    '--outputs_path', '-O', default='../datas/gcn/outputs/learned',
+    '--outputs_path', '-O', default='../datas/geo_down/outputs/learned',
     type=str, metavar='path of directory trained model saved'
 )
 parser.add_argument(
-    '--logdir', '-L', default='../datas/gcn/log', type=str,
+    '--logdir', '-L', default='../datas/geo_down/log', type=str,
     metavar='path of directory log saved'
 )
-parser.add_argument('--epochs', '-E', default=20, type=int, metavar='N')
 parser.add_argument(
     '--learning_rate', '-lr', default=0.1, type=float, metavar='N'
 )
-parser.add_argument(
-    '--sim_threshold', '-Sth', default=0.4, type=float, metavar='N'
-)
 parser.add_argument('--start_epoch', default=1, type=int, metavar='N')
 parser.add_argument('--workers', '-W', default=4, type=int, metavar='N')
+
+
+def limited_category(reps):
+    gr = DH.loadPickle('geo_relationship.pickle', '../datas/bases')
+    vis_local = DH.loadJson('category', '../datas/gcn/inputs')
+    vis_rep = DH.loadJson('upper_category', '../datas/gcn/inputs')
+    local = set(vis_local) - set(vis_rep)
+
+    down = []
+    for item in reps:
+        down.extend(gr[item])
+
+    down = set(down) & set(local)
+    down = sorted(list(down | set(reps)))
+    return {key: idx for idx, key in enumerate(down)}
 
 
 if __name__ == "__main__":
@@ -56,54 +71,38 @@ if __name__ == "__main__":
     numwork = args.workers
 
     # データの読み込み先
+    base_path = '../datas/bases/'
     input_path = args.inputs_path if args.inputs_path[-1:] == '/' \
         else args.inputs_path + '/'
-    image_normalization_mean = [0.485, 0.456, 0.406]
-    image_normalization_std = [0.229, 0.224, 0.225]
+
+    rep_category = DH.loadJson('upper_category.json', input_path)
+    category = DH.loadJson('category.json', input_path)
+    rep_category = {'lasvegas': 0, 'newyorkcity': 1}
+    category = {'bellagio': 0, 'grandcentralstation': 1, 'lasvegas': 2,
+                'newyorkcity': 3}
+    num_class = len(category)
+
+    # データの作成
+    geo_down_train = GU.down_dataset(rep_category, category, 'train')
+    geo_down_validate = GU.down_dataset(rep_category, category, 'validate')
+    DH.savePickle(geo_down_train, 'geo_down_train', input_path)
+    DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
+
     kwargs_DF = {
         'train': {
-            'filenames': {
-                'Annotation': input_path + 'train_anno.json',
-                'Category_to_Index': input_path + 'category.json'
-            },
-            'transform': transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(
-                        224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
-                    ),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=image_normalization_mean,
-                        std=image_normalization_std
-                    )
-                ]
-            ),
-            'image_path': input_path + 'images/train/'
+            'class_num': num_class,
+            'transform': torch.tensor,
+            'data_path': input_path + 'geo_down_train.pickle'
         },
         'validate': {
-            'filenames': {
-                'Annotation': input_path + 'validate_anno.json',
-                'Category_to_Index': input_path + 'category.json'
-            },
-            'transform': transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(
-                        224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
-                    ),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=image_normalization_mean,
-                        std=image_normalization_std
-                    )
-                ]
-            ),
-            'image_path': input_path + 'images/validate/'
-        }
+            'class_num': num_class,
+            'transform': torch.tensor,
+            'data_path': input_path + 'geo_down_validate.pickle'
+        },
     }
 
-    train_dataset = DatasetFlickr(**kwargs_DF['train'])
-    val_dataset = DatasetFlickr(**kwargs_DF['validate'])
-    num_class = train_dataset.num_category()
+    train_dataset = DatasetGeotag(**kwargs_DF['train'])
+    val_dataset = DatasetGeotag(**kwargs_DF['validate'])
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -124,34 +123,37 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    mask = DH.loadPickle(
-        '{0:0=2}'.format(int(args.sim_threshold * 10)),
-        input_path + 'comb_mask/'
-    )
+    mask = DH.loadPickle('mask_5', input_path) if args.load_mask else None
+    mask = GU.down_mask(rep_category, category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    bp_weight = DH.loadNpy(
-        '{0:0=2}'.format(int(args.sim_threshold * 10)),
-        input_path + 'backprop_weight/'
-    )
+    bp_weight = DH.loadNpy('backprop_weight', input_path) \
+        if args.load_backprop_weight else None
+    bp_weight = bp_weight if bp_weight is not None \
+        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+
+    # 入力位置情報の正規化のためのパラメータ読み込み
+    mean, std = DH.loadNpy('normalize_params', input_path)
 
     # 学習で用いるデータの設定や読み込み先
     gcn_settings = {
-        'num_class': num_class,
+        'category': category,
+        'rep_category': rep_category,
         'filepaths': {
-            'category': input_path + 'category.json',
-            'upper_category': input_path + 'upper_category.json',
-            'relationship': input_path + 'relationship.pickle',
-            # 'learned_weight': input_path + 'learned/200cnn.pth'
-            'learned_weight': input_path + '200cnn.pth'
+            'relationship': base_path + 'geo_relationship.pickle',
+            'learned_weight': input_path + '010weight.pth'
+            # 'learned_weight': input_path + '200weight.pth'
         },
-        'feature_dimension': 2048
+        'feature_dimension': 30,
+        'simplegeonet_settings': {
+            'class_num': len(rep_category), 'mean': mean, 'std': std
+        }
     }
 
     # modelの設定
-    model = MultiLabelGCN(
+    model = GeotagGCN(
         class_num=num_class,
-        loss_function=MyLossFunction(),
+        loss_function=MyLossFunction(reduction='none'),
         optimizer=optim.SGD,
         learningrate=args.learning_rate,
         momentum=0.9,
@@ -177,11 +179,11 @@ if __name__ == "__main__":
         log_dir=log_dir + '{0:%Y%m%d}_{0:%H%M}'.format(now)
     )
 
-    model.savemodel('{0:0=3}weight'.format(0), mpath)
+    model.savemodel('000weight.pth', mpath)
     for epoch in range(args.start_epoch, epochs + 1):
-        train_loss, train_recall, train_precision, fl, pl, al \
+        train_loss, train_recall, train_precision, _, _, _ \
             = model.train(train_loader)
-        val_loss, val_recall, val_precision, fl, pl, al \
+        val_loss, val_recall, val_precision, _, _, _ \
             = model.validate(val_loader)
         print('epoch: {0}'.format(epoch))
         print('loss: {0}, recall: {1}, precision: {2}'.format(
@@ -192,30 +194,28 @@ if __name__ == "__main__":
         ))
         print('--------------------------------------------------------------')
 
-        writer.add_scalars(
-            'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
-        )
-        writer.add_scalars(
-            'recall',
-            {'train_recall': train_recall, 'val_recall': val_recall},
-            epoch
-        )
-        writer.add_scalars(
-            'precision',
-            {
-                'train_precision': train_precision,
-                'val_precision': val_precision
-            },
-            epoch
-        )
+        writer.add_scalar('loss', train_loss, epoch)
+        writer.add_scalar('recall', train_recall, epoch)
+        writer.add_scalar('precision', train_precision, epoch)
 
-        spath = mpath + 'fpa_list/{0:0=2}/{1:0=3}'.format(
-            int(args.sim_threshold * 10), epoch
-        )
+        # writer.add_scalars(
+        #     'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
+        # )
+        # writer.add_scalars(
+        #     'recall',
+        #     {'train_recall': train_recall, 'val_recall': val_recall},
+        #     epoch
+        # )
+        # writer.add_scalars(
+        #     'precision',
+        #     {
+        #         'train_precision': train_precision,
+        #         'val_precision': val_precision
+        #     },
+        #     epoch
+        # )
+
         model.savemodel('{0:0=3}weight'.format(epoch), mpath)
-        DH.saveNpy(fl, 'fl', spath)
-        DH.saveNpy(pl, 'pl', spath)
-        DH.saveNpy(al, 'al', spath)
 
     writer.close()
     print('finish.')
