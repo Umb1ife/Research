@@ -75,6 +75,7 @@ class GCNModel(nn.Module):
             inputs = inputs.cuda()
 
         output = self._before_fc(inputs)
+        # output = torch.sigmoid(output)
         output = output.view(inputs.shape[0], self._feature_dimension)
 
         return output

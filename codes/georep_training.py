@@ -15,6 +15,8 @@ from torch.utils.tensorboard import SummaryWriter
 parser = argparse.ArgumentParser(description='Fine-tuning')
 parser.add_argument('--epochs', '-E', default=200, type=int, metavar='N')
 parser.add_argument('--batch_size', '-B', default=1, type=int, metavar='N')
+parser.add_argument('--load_mask', action='store_true')
+parser.add_argument('--load_backprop_weight', action='store_true')
 parser.add_argument(
     '--device_ids', '-D', default='0', type=str, metavar="'i, j, k'"
 )
@@ -156,11 +158,12 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    mask = DH.loadPickle('mask_5.pickle', input_path)
+    mask = DH.loadPickle('mask_5', input_path) if args.load_mask else None
     mask = geo_repmask(category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    bp_weight = DH.loadNpy('backprop_weight', input_path)
+    bp_weight = DH.loadNpy('backprop_weight', input_path) \
+        if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
 

@@ -989,8 +989,8 @@ def small_graph_pair(tag1, tag2, epochs=(200, 20, 200, 20), reset_dir=True):
 
 
 if __name__ == "__main__":
-    all_small_graph_pairs()
-    small_graph_pair('airplane', 'castle', (1, 1, 1, 1))
+    # all_small_graph_pairs()
+    small_graph_pair('church', 'skyscraper', (1, 1, 1, 1), False)
     # small_graph_pair('airplane', 'castle', (20, 20, 20, 20))
 
     print('finish.')

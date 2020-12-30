@@ -13,7 +13,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 parser = argparse.ArgumentParser(description='')
+parser.add_argument('--epochs', '-E', default=20, type=int, metavar='N')
 parser.add_argument('--batch_size', '-B', default=1, type=int, metavar='N')
+parser.add_argument('--load_mask', action='store_true')
+parser.add_argument('--load_backprop_weight', action='store_true')
 parser.add_argument(
     '--device_ids', '-D', default='0', type=str, metavar="'i, j, k'"
 )
@@ -29,7 +32,6 @@ parser.add_argument(
     '--logdir', '-L', default='../datas/geo_down/log', type=str,
     metavar='path of directory log saved'
 )
-parser.add_argument('--epochs', '-E', default=20, type=int, metavar='N')
 parser.add_argument(
     '--learning_rate', '-lr', default=0.1, type=float, metavar='N'
 )
@@ -120,6 +122,21 @@ def geo_downmask(rep_category, local_category, sim_thr=5, reverse=True,
     return _mask
 
 
+def limited_category(reps):
+    gr = DH.loadPickle('geo_relationship.pickle', '../datas/bases')
+    vis_local = DH.loadJson('category', '../datas/gcn/inputs')
+    vis_rep = DH.loadJson('upper_category', '../datas/gcn/inputs')
+    local = set(vis_local) - set(vis_rep)
+
+    down = []
+    for item in reps:
+        down.extend(gr[item])
+
+    down = set(down) & set(local)
+    down = sorted(list(down | set(reps)))
+    return {key: idx for idx, key in enumerate(down)}
+
+
 if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 初期設定
@@ -185,11 +202,12 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    mask = DH.loadPickle('mask_5.pickle', input_path)
+    mask = DH.loadPickle('mask_5', input_path) if args.load_mask else None
     mask = geo_downmask(rep_category, category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    bp_weight = DH.loadNpy('backprop_weight', input_path)
+    bp_weight = DH.loadNpy('backprop_weight', input_path) \
+        if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
 
@@ -198,14 +216,9 @@ if __name__ == "__main__":
 
     # 学習で用いるデータの設定や読み込み先
     gcn_settings = {
-        # 'num_class': num_class,
         'category': category,
         'rep_category': rep_category,
-        # 'relationship': base_path + 'geo_relationship.pickle',
-        # 'learned_weight': input_path + '200weight.pth',
         'filepaths': {
-            # 'category': input_path + 'category.json',
-            # 'upper_category': input_path + 'upper_category.json',
             'relationship': base_path + 'geo_relationship.pickle',
             'learned_weight': input_path + '200weight.pth'
         },
