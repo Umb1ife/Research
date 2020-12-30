@@ -45,6 +45,8 @@ class GCNModel(nn.Module):
 
         # GeoRepModelの最終層前までを取得
         self._before_fc = SimpleGeoNet(**simplegeonet_settings)
+        self._mean = self._before_fc._mean
+        self._std = self._before_fc._std
         self._before_fc.load_state_dict(CNN_weight)
         self._before_fc = torch.nn.Sequential(
             *(list(self._before_fc.children())[:-1])
@@ -72,9 +74,9 @@ class GCNModel(nn.Module):
         if self._use_gpu:
             inputs = inputs.cuda()
 
+        inputs = (inputs - self._mean) / self._std
         output = self._before_fc(inputs)
-        # output = torch.sigmoid(output)
-        output = output.view(inputs.shape[0], self._feature_dimension)
+        output = output.view(1, self._feature_dimension)
 
         return output
 

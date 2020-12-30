@@ -137,7 +137,7 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
     for lat in lats:
         for lng in lngs:
             # labels = model.predict(torch.Tensor([30, -80]), labeling=True)
-            labels = model.predict(torch.Tensor([[lng, lat]]), labeling=True)
+            labels = model.predict(torch.Tensor([lng, lat]), labeling=True)
             labels = np.where(labels[0] > 0)[0]
             radius = 150
             for lbl in labels:

@@ -15,8 +15,9 @@ class GCNLayer(nn.Module):
 
         # H，A，Wを設定
         self.H_0 = H
-        self.A = A / (A.sum(0, keepdims=True) + 1e-6)
-        self.W = self.W / (self.W.sum(0, keepdims=True) + 1e-6)
+        sumA = A.sum(0, keepdims=True)
+        self.A = A / np.where(sumA == 0, 0.1, sumA)
+        self.W = self.W / self.W.sum(0, keepdims=True)
 
         # モデル化
         self.H_0 = nn.Parameter(torch.Tensor(self.H_0))
