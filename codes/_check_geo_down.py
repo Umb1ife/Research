@@ -3,13 +3,15 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     import folium
     import numpy as np
     from mmm import DataHandler as DH
+    from geodown_training import limited_category
 
-    input_path = '../datas/geo_rep/inputs/'
-    datas = DH.loadPickle('geo_rep_train.pickle', input_path)
+    input_path = '../datas/geo_down/inputs/'
+    datas = DH.loadPickle('geo_down_train.pickle', input_path)
     category = DH.loadJson('category.json', input_path)
     mean, std = DH.loadNpy('normalize_params.npy', input_path)
     # -------------------------------------------------------------------------
-
+    rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
+    category = limited_category(rep_category)
     category = list(category.keys())
     class_num = len(category)
 
@@ -62,7 +64,7 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     return _map
 
 
-def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
+def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
                        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
                        limited=None):
     import colorsys
@@ -70,7 +72,8 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     import numpy as np
     import torch
     from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
-    from mmm import RepGeoClassifier
+    from mmm import GeotagGCN
+    from geodown_training import limited_category
 
     # -------------------------------------------------------------------------
     # load classifier
@@ -79,12 +82,31 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
     # -------------------------------------------------------------------------
 
-    category = list(category.keys())
+    rep_category = {'lasvegas': 0, 'newyorkcity': 1}
+    # category = limited_category(rep_category)
+    category = {'bellagio': 0, 'grandcentralstation': 1, 'lasvegas': 2,
+                'newyorkcity': 3}
     num_class = len(category)
-    model = RepGeoClassifier(
+
+    gcn_settings = {
+        'category': category,
+        'rep_category': rep_category,
+        'filepaths': {
+            'relationship': '../datas/bases/geo_relationship.pickle',
+            'learned_weight': '../datas/geo_rep/outputs/learned_small/010weight.pth'
+            # 'learned_weight': input_path + '200weight.pth'
+        },
+        'feature_dimension': 30,
+        'simplegeonet_settings': {
+            'class_num': len(rep_category), 'mean': mean, 'std': std
+        }
+    }
+
+    model = GeotagGCN(
         class_num=num_class,
         loss_function=MyLossFunction(reduction='none'),
-        network_setting={'class_num': num_class, 'mean': mean, 'std': std},
+        weight_decay=1e-4,
+        network_setting=gcn_settings,
     )
     model.loadmodel(weight)
 
@@ -111,10 +133,12 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
 
     # -------------------------------------------------------------------------
     # plot
+    category = list(category.keys())
     for lat in lats:
         for lng in lngs:
-            labels = model.predict(torch.Tensor([lng, lat]), labeling=True)
-            labels = np.where(labels > 0)[0]
+            # labels = model.predict(torch.Tensor([30, -80]), labeling=True)
+            labels = model.predict(torch.Tensor([[lng, lat]]), labeling=True)
+            labels = np.where(labels[0] > 0)[0]
             radius = 150
             for lbl in labels:
                 popup = category[lbl]
@@ -129,6 +153,27 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
                     fill=False
                 ).add_to(_map)
                 radius *= 2
+
+    # datas = DH.loadPickle('geo_down_train.pickle', '../datas/geo_down/inputs/')
+    # for item in datas:
+    #     loc = item['locate']
+    #     # labels = model.predict(torch.Tensor([[lng, lat]]), labeling=True)
+    #     labels = model.predict(torch.Tensor([loc]), labeling=False)
+    #     labels = np.where(labels[0] > 0)[0]
+    #     radius = 150
+    #     for lbl in labels:
+    #         popup = category[lbl]
+    #         if limited and popup not in limited:
+    #             continue
+
+    #         folium.Circle(
+    #             radius=radius,
+    #             location=[loc[1], loc[0]],
+    #             popup=popup,
+    #             color=RGB_tuples[lbl],
+    #             fill=False
+    #         ).add_to(_map)
+    #         radius *= 2
 
     return _map
 
@@ -315,4 +360,8 @@ def confusion_all_matrix(epoch=20, saved=True,
 
 
 if __name__ == "__main__":
-    confusion_all_matrix()
+    # confusion_all_matrix()
+    # visualize_classmap()
+    # plot_map()
+
+    print('finish.')

@@ -4,6 +4,7 @@ from .customized_multilabel_soft_margin_loss \
 from .datahandler import DatasetFlickr, DatasetGeotag, DataHandler
 from .finetunemodel import FinetuneModel
 from .gcnmodel import MultiLabelGCN
+from .geo_utils import GeoUtils
 from .geodownmodel import GeotagGCN
 from .georepmodel import RepGeoClassifier
 from .imbalanced_data_sampler import ImbalancedDataSampler

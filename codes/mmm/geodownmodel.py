@@ -19,8 +19,6 @@ class GCNModel(nn.Module):
         self._feature_dimension = feature_dimension
         self.num_classes = len(category)
 
-        # upper_category = json.load(open(filepaths['upper_category'], 'r'))
-        # category = json.load(open(filepaths['category'], 'r'))
         relationship = DataHandler.loadPickle(filepaths['relationship'])
         CNN_weight = torch.load(filepaths['learned_weight'])
 

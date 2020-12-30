@@ -76,6 +76,7 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     # load classifier
     from mmm import DataHandler as DH
     category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
+    category = {'lasvegas': 0, 'newyorkcity': 1}
     mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
     # -------------------------------------------------------------------------
 
@@ -113,6 +114,7 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     # plot
     for lat in lats:
         for lng in lngs:
+            # labels = model.predict(torch.Tensor([30, -80]), labeling=True)
             labels = model.predict(torch.Tensor([lng, lat]), labeling=True)
             labels = np.where(labels > 0)[0]
             radius = 150
@@ -295,6 +297,7 @@ def confusion_all_matrix(epoch=200, saved=True,
 
 
 if __name__ == "__main__":
-    confusion_all_matrix()
+    # confusion_all_matrix()
+    # visualize_classmap(weight='../datas/geo_rep/outputs/learned_small/010weight.pth')
 
     print('finish.')

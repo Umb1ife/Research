@@ -7,6 +7,7 @@ import torch.optim as optim
 from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
 from mmm import DataHandler as DH
 from mmm import DatasetGeotag
+from mmm import GeoUtils as GU
 from mmm import MakeBPWeight
 from mmm import RepGeoClassifier
 from torch.utils.tensorboard import SummaryWriter
@@ -39,64 +40,6 @@ parser.add_argument(
 parser.add_argument('--start_epoch', default=1, type=int, metavar='N')
 
 
-def geo_dataset(category, phase='train'):
-    import numpy as np
-    from tqdm import tqdm
-
-    print('preparing dataset: {0} ...'.format(phase))
-    lda = DH.loadPickle('local_df_area16_wocoth_new.pickle', base_path)
-    locates = 'geo' if phase == 'train' else 'geo_val'
-    locates = list(lda[locates])
-    temp = [item for gl in locates for item in gl]
-    mean = np.mean(temp, axis=0)
-    std = np.std(temp, axis=0)
-
-    locates = [item if len(item) >= 1 else [] for item in locates]
-    tags = list(lda.index)
-    temp_dict = {key: [] for item in locates for key in item}
-    for item, tag in zip(locates, tags):
-        for locate in item:
-            temp_dict[locate].append(tag)
-
-    for key, val in temp_dict.items():
-        temp_dict[key] = sorted(list(set(val)))
-
-    locate_tags_dictlist = []
-    for key, val in tqdm(temp_dict.items()):
-        temp = [category[label] for label in val if label in category]
-        if temp:
-            locate_tags_dictlist.append({
-                'labels': temp,
-                'locate': list(key)
-            })
-
-    return locate_tags_dictlist, (mean, std)
-
-
-def geo_repmask(category, sim_thr=5, reverse=True, saved=True,
-                save_path='../datas/geo_rep/inputs/'):
-    import numpy as np
-
-    print('calculating mask ...')
-    repsnum = len(category)
-    _mask = np.zeros((repsnum, repsnum), int)
-    sim_dict = DH.loadPickle('geo_rep_simdict', base_path)
-
-    for tag1 in category:
-        for tag2 in category:
-            if tag1 == tag2:
-                continue
-
-            sim = sim_dict[tag2][tag1] if reverse else sim_dict[tag1][tag2]
-            if sim < sim_thr:
-                _mask[category[tag1]][category[tag2]] = 1
-
-    if saved:
-        DH.savePickle(_mask, 'mask_{0}'.format(sim_thr), save_path)
-
-    return _mask
-
-
 if __name__ == "__main__":
     args = parser.parse_args()
 
@@ -110,15 +53,14 @@ if __name__ == "__main__":
     numwork = args.workers
 
     # データの読み込み先
-    base_path = '../datas/bases/'
     input_path = args.inputs_path if args.inputs_path[-1:] == '/' \
         else args.inputs_path + '/'
     category = DH.loadJson('category.json', input_path)
     num_class = len(category)
 
     # データの作成
-    geo_rep_train, (mean, std) = geo_dataset(category, 'train')
-    geo_rep_validate, _ = geo_dataset(category, 'validate')
+    geo_rep_train, (mean, std) = GU.rep_dataset(category, 'train')
+    geo_rep_validate, _ = GU.rep_dataset(category, 'validate')
     DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
     DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
     DH.saveNpy((mean, std), 'normalize_params', input_path)
@@ -159,7 +101,7 @@ if __name__ == "__main__":
 
     # maskの読み込み
     mask = DH.loadPickle('mask_5', input_path) if args.load_mask else None
-    mask = geo_repmask(category) if mask is None else mask
+    mask = GU.rep_mask(category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
     bp_weight = DH.loadNpy('backprop_weight', input_path) \

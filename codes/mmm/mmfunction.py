@@ -75,5 +75,3 @@ def makepath(mkpath):
 
     if not os.path.exists(mkpath):
         os.makedirs(mkpath)
-
-    return
