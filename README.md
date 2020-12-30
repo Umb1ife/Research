@@ -26,7 +26,7 @@
   pip install -r requirements.txt
   ```
 
-  After installation with requirement.txt, you need to add two python library, Cartopy and Shapely.
+  After installation with requirement.txt, you need to add two python libraries, Cartopy and Shapely.
 
   First, install PROJ and GEOS because Cartopy requires.
 
