@@ -11,7 +11,7 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     # -------------------------------------------------------------------------
 
     category = list(category.keys())
-    class_num = len(category)
+    # class_num = len(category)
 
     if sort_std:
         groups = {key: [] for key in category}
@@ -32,7 +32,17 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
         tiles='Stamen Terrain'
     )
 
-    HSV_tuples = [(x * 1.0 / class_num, 1.0, 1.0) for x in range(class_num)]
+    limited = category[:] if limited is None else limited
+    limited = set(limited) & set(category)
+    convert_idx = {}
+    cnt = 0
+    for idx, cat in enumerate(category):
+        if cat in limited:
+            convert_idx[idx] = cnt
+            cnt += 1
+
+    color_num = len(convert_idx)
+    HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
     RGB_tuples = [
         '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
@@ -44,7 +54,7 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
         radius = 150
         for lbl in labels:
             popup = category[lbl]
-            if limited and popup not in limited:
+            if popup not in limited:
                 continue
 
             if sort_std:
@@ -54,7 +64,7 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
                 radius=radius,
                 location=locate,
                 popup=popup,
-                color=RGB_tuples[lbl],
+                color=RGB_tuples[convert_idx[lbl]],
                 fill=False,
             ).add_to(_map)
             radius *= 2
@@ -104,7 +114,18 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     )
 
     # make colors list
-    HSV_tuples = [(x * 1.0 / num_class, 1.0, 1.0) for x in range(num_class)]
+    limited = category[:] if limited is None else limited
+    limited = set(limited) & set(category)
+    convert_idx = {}
+    cnt = 0
+    for idx, cat in enumerate(category):
+        if cat in limited:
+            convert_idx[idx] = cnt
+            cnt += 1
+
+    color_num = len(convert_idx)
+    HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
+    # HSV_tuples = [(x * 1.0 / num_class, 1.0, 1.0) for x in range(num_class)]
     RGB_tuples = [
         '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
@@ -120,14 +141,14 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
             radius = 150
             for lbl in labels:
                 popup = category[lbl]
-                if limited and popup not in limited:
+                if popup not in limited:
                     continue
 
                 folium.Circle(
                     radius=radius,
                     location=[lat, lng],
                     popup=popup,
-                    color=RGB_tuples[lbl],
+                    color=RGB_tuples[convert_idx[lbl]],
                     fill=False
                 ).add_to(_map)
                 radius *= 2
