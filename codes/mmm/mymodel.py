@@ -40,7 +40,7 @@ class MyBaseModel(metaclass=ABCMeta):
         self._activation_function = np.vectorize(self._activation_function)
 
         # backprop_weightをデータ数の逆数で補正
-        backprop_weight = np.ones((class_num, 2)) \
+        backprop_weight = np.ones((class_num, 2), dtype=np.float64) \
             if backprop_weight is None else backprop_weight
         backprop_weight = np.sqrt(backprop_weight)
         backprop_weight[backprop_weight == 0] = np.inf

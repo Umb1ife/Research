@@ -10,10 +10,10 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     category = DH.loadJson('category.json', input_path)
     mean, std = DH.loadNpy('normalize_params.npy', input_path)
     # -------------------------------------------------------------------------
-    rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    category = limited_category(rep_category)
+    # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
+    # category = limited_category(rep_category)
     category = list(category.keys())
-    class_num = len(category)
+    # class_num = len(category)
 
     if sort_std:
         groups = {key: [] for key in category}
@@ -34,7 +34,17 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
         tiles='Stamen Terrain'
     )
 
-    HSV_tuples = [(x * 1.0 / class_num, 1.0, 1.0) for x in range(class_num)]
+    limited = category[:] if limited is None else limited
+    limited = set(limited) & set(category)
+    convert_idx = {}
+    cnt = 0
+    for idx, cat in enumerate(category):
+        if cat in limited:
+            convert_idx[idx] = cnt
+            cnt += 1
+
+    color_num = len(convert_idx)
+    HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
     RGB_tuples = [
         '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
@@ -46,7 +56,7 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
         radius = 150
         for lbl in labels:
             popup = category[lbl]
-            if limited and popup not in limited:
+            if popup not in limited:
                 continue
 
             if sort_std:
@@ -56,7 +66,7 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
                 radius=radius,
                 location=locate,
                 popup=popup,
-                color=RGB_tuples[lbl],
+                color=RGB_tuples[convert_idx[lbl]],
                 fill=False,
             ).add_to(_map)
             radius *= 2
@@ -125,7 +135,18 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
     )
 
     # make colors list
-    HSV_tuples = [(x * 1.0 / num_class, 1.0, 1.0) for x in range(num_class)]
+    limited = category[:] if limited is None else limited
+    limited = set(limited) & set(category)
+    convert_idx = {}
+    cnt = 0
+    for idx, cat in enumerate(category):
+        if cat in limited:
+            convert_idx[idx] = cnt
+            cnt += 1
+
+    color_num = len(convert_idx)
+    HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
+    # HSV_tuples = [(x * 1.0 / num_class, 1.0, 1.0) for x in range(num_class)]
     RGB_tuples = [
         '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
@@ -142,14 +163,14 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
             radius = 150
             for lbl in labels:
                 popup = category[lbl]
-                if limited and popup not in limited:
+                if popup not in limited:
                     continue
 
                 folium.Circle(
                     radius=radius,
                     location=[lat, lng],
                     popup=popup,
-                    color=RGB_tuples[lbl],
+                    color=RGB_tuples[convert_idx[lbl]],
                     fill=False
                 ).add_to(_map)
                 radius *= 2
@@ -163,17 +184,139 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
     #     radius = 150
     #     for lbl in labels:
     #         popup = category[lbl]
-    #         if limited and popup not in limited:
+    #         if popup not in limited:
     #             continue
 
     #         folium.Circle(
     #             radius=radius,
     #             location=[loc[1], loc[0]],
     #             popup=popup,
-    #             color=RGB_tuples[lbl],
+    #             color=RGB_tuples[convert_idx[lbl]],
     #             fill=False
     #         ).add_to(_map)
     #         radius *= 2
+
+    return _map
+
+
+def visualize_training_data(tag, phase='train', limited=[-1, 0, 1]):
+    '''
+    あるクラスについて学習データを正例(1)・unknown(-1)・負例(0)に振り分けプロット
+    '''
+    import colorsys
+    import folium
+    import numpy as np
+    import torch
+    from geodown_training import limited_category
+    # from mmm import DataHandler as DH
+    from mmm import DatasetGeotag
+    from mmm import GeoUtils as GU
+    from tqdm import tqdm
+
+    # -------------------------------------------------------------------------
+    # データの読み込み
+    input_path = '../datas/geo_down/inputs/'
+    # rep_category = DH.loadJson('upper_category.json', input_path)
+    # category = DH.loadJson('category.json', input_path)
+    rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
+    category = limited_category(rep_category)
+    num_class = len(category)
+    if tag not in category:
+        raise Exception
+    tag_idx = category[tag]
+
+    kwargs_DF = {
+        'train': {
+            'class_num': num_class,
+            'transform': torch.tensor,
+            'data_path': input_path + 'geo_down_train.pickle'
+        },
+        'validate': {
+            'class_num': num_class,
+            'transform': torch.tensor,
+            'data_path': input_path + 'geo_down_validate.pickle'
+        },
+    }
+
+    dataset = DatasetGeotag(**kwargs_DF[phase])
+    loader = torch.utils.data.DataLoader(
+        dataset,
+        shuffle=False,
+        batch_size=1,
+        num_workers=4
+    )
+
+    mask = GU.down_mask(rep_category, category, sim_thr=5, saved=False)
+
+    # -------------------------------------------------------------------------
+    def _fixed_mask(labels, fmask):
+        '''
+        誤差を伝播させない部分を指定するマスクの生成
+        '''
+        labels = labels.data.cpu().numpy()
+        labels_y, labels_x = np.where(labels == 1)
+        labels_y = np.append(labels_y, labels_y[-1] + 1)
+        labels_x = np.append(labels_x, 0)
+
+        fixmask = np.zeros((labels.shape[0] + 1, labels.shape[1]), int)
+        row_p, columns_p = labels_y[0], [labels_x[0]]
+        fixmask[row_p] = fmask[labels_x[0]]
+
+        for row, column in zip(labels_y[1:], labels_x[1:]):
+            if row == row_p:
+                columns_p.append(column)
+            else:
+                if len(columns_p) > 1:
+                    for x in columns_p:
+                        fixmask[row_p][x] = 0
+
+                row_p, columns_p = row, [column]
+
+            fixmask[row] = fixmask[row] | fmask[column]
+
+        fixmask = fixmask[:-1]
+
+        return fixmask
+
+    # -------------------------------------------------------------------------
+    # トレーニングデータを振り分け
+    loc_ans_list = []
+    for locate, label, _ in tqdm(loader):
+        fix_mask = _fixed_mask(label, mask)
+        locate = (float(locate[0][0]), float(locate[0][1]))
+        flg = -1 if fix_mask[0][tag_idx] == 1 else 0 \
+            if label[0][tag_idx] == 0 else 1
+
+        loc_ans_list.append((locate, flg))
+
+    # -------------------------------------------------------------------------
+    # plot
+    color_num = 3
+    HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
+    RGB_tuples = [
+        '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
+        for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
+    ]
+
+    _map = folium.Map(
+        location=[40.0, -100.0],
+        zoom_start=4,
+        tiles='Stamen Terrain'
+    )
+
+    print('plotting...')
+    for locate, label in tqdm(loc_ans_list):
+        if label not in limited:
+            continue
+
+        locate = [locate[1], locate[0]]
+        folium.Circle(
+            radius=150,
+            location=locate,
+            popup=label,
+            color=RGB_tuples[label],
+            fill=False,
+        ).add_to(_map)
 
     return _map
 
@@ -188,6 +331,7 @@ def confusion_all_matrix(epoch=20, saved=True,
     import numpy as np
     import os
     import torch
+    from geodown_training import limited_category
     from mmm import DataHandler as DH
     from mmm import GeotagGCN
     from mmm import DatasetGeotag
@@ -202,6 +346,8 @@ def confusion_all_matrix(epoch=20, saved=True,
 
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
+    rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
+    category = limited_category(rep_category)
     num_class = len(category)
 
     kwargs_DF = {
@@ -232,7 +378,8 @@ def confusion_all_matrix(epoch=20, saved=True,
         'rep_category': rep_category,
         'filepaths': {
             'relationship': base_path + 'geo_relationship.pickle',
-            'learned_weight': input_path + '200weight.pth'
+            'learned_weight': input_path + '020weight.pth'
+            # 'learned_weight': input_path + '200weight.pth'
         },
         'feature_dimension': 30,
         'simplegeonet_settings': {
@@ -255,7 +402,7 @@ def confusion_all_matrix(epoch=20, saved=True,
     )
     if epoch > 0:
         model.loadmodel('{0:0=3}weight'.format(epoch),
-                        '../datas/geo_down/outputs/check/')
+                        '../datas/geo_down/outputs/learned_small_3/')
 
     def _update_backprop_weight(labels, fmask):
         '''
@@ -363,5 +510,6 @@ if __name__ == "__main__":
     # confusion_all_matrix()
     # visualize_classmap()
     # plot_map()
+    # visualize_training_data('bellagio')
 
     print('finish.')

@@ -40,7 +40,7 @@ parser.add_argument('--start_epoch', default=1, type=int, metavar='N')
 parser.add_argument('--workers', '-W', default=4, type=int, metavar='N')
 
 
-def limited_category(reps):
+def limited_category(reps, lda='../datas/bases/local_df_area16_wocoth_new'):
     gr = DH.loadPickle('geo_relationship.pickle', '../datas/bases')
     vis_local = DH.loadJson('category', '../datas/gcn/inputs')
     vis_rep = DH.loadJson('upper_category', '../datas/gcn/inputs')
@@ -51,7 +51,11 @@ def limited_category(reps):
         down.extend(gr[item])
 
     down = set(down) & set(local)
-    down = sorted(list(down | set(reps)))
+
+    lda = DH.loadPickle(lda)
+    down = [item for item in down if len(lda['geo'][item]) > 0]
+    down = sorted(list(set(down) | set(reps)))
+
     return {key: idx for idx, key in enumerate(down)}
 
 
@@ -77,14 +81,25 @@ if __name__ == "__main__":
 
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
-    rep_category = {'lasvegas': 0, 'newyorkcity': 1}
-    category = {'bellagio': 0, 'grandcentralstation': 1, 'lasvegas': 2,
-                'newyorkcity': 3}
+    rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
+    # category = limited_category(rep_category)
+    category = limited_category(
+        rep_category,
+        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
+    )
     num_class = len(category)
 
     # データの作成
-    geo_down_train = GU.down_dataset(rep_category, category, 'train')
-    geo_down_validate = GU.down_dataset(rep_category, category, 'validate')
+    geo_down_train = GU.down_dataset(
+        rep_category, category, 'train',
+        base_path=base_path
+        # base_path=input_path
+    )
+    geo_down_validate = GU.down_dataset(
+        rep_category, category, 'validate',
+        base_path=base_path
+        # base_path=input_path
+    )
     DH.savePickle(geo_down_train, 'geo_down_train', input_path)
     DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
 
@@ -141,7 +156,7 @@ if __name__ == "__main__":
         'rep_category': rep_category,
         'filepaths': {
             'relationship': base_path + 'geo_relationship.pickle',
-            'learned_weight': input_path + '010weight.pth'
+            'learned_weight': input_path + '020weight.pth'
             # 'learned_weight': input_path + '200weight.pth'
         },
         'feature_dimension': 30,
@@ -179,7 +194,22 @@ if __name__ == "__main__":
         log_dir=log_dir + '{0:%Y%m%d}_{0:%H%M}'.format(now)
     )
 
+    # 学習前
     model.savemodel('000weight.pth', mpath)
+    train_loss, train_recall, train_precision, _, _, _ \
+        = model.validate(train_loader)
+    val_loss, val_recall, val_precision, _, _, _ \
+        = model.validate(val_loader)
+    print('epoch: {0}'.format(0))
+    print('loss: {0}, recall: {1}, precision: {2}'.format(
+        train_loss, train_recall, train_precision
+    ))
+    print('loss: {0}, recall: {1}, precision: {2}'.format(
+        val_loss, val_recall, val_precision
+    ))
+    print('------------------------------------------------------------------')
+
+    # 学習
     for epoch in range(args.start_epoch, epochs + 1):
         train_loss, train_recall, train_precision, _, _, _ \
             = model.train(train_loader)
