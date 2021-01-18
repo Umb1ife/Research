@@ -8,5 +8,6 @@ from .geo_utils import GeoUtils
 from .geodownmodel import GeotagGCN
 from .georepmodel import RepGeoClassifier
 from .imbalanced_data_sampler import ImbalancedDataSampler
+from .meanshift_refiner import MeanShiftRefiner
 from .mmfunction import benchmark, makepath, loading_animation
 from .prepare import PrepareVis

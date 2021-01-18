@@ -56,6 +56,7 @@ if __name__ == "__main__":
     input_path = args.inputs_path if args.inputs_path[-1:] == '/' \
         else args.inputs_path + '/'
     category = DH.loadJson('category.json', input_path)
+    # category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
     num_class = len(category)
 
     # データの作成

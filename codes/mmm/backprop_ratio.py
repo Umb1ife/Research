@@ -65,4 +65,4 @@ def make_backprop_ratio(train_dataset, category_length, mask,
     if saved:
         DH.saveNpy(np.array(counts), 'backprop_weight', save_path)
 
-    return np.array(counts)
+    return np.array(counts, dtype=np.float64)
