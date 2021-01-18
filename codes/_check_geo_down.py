@@ -322,6 +322,7 @@ def visualize_training_data(tag, phase='train', limited=[-1, 0, 1]):
 
 
 def confusion_all_matrix(epoch=20, saved=True,
+                         weight_path='../datas/geo_down/outputs/learned/',
                          outputs_path='../datas/geo_down/outputs/check/'):
     '''
     正例・unknown・負例についてconfusion_matrixを作成
@@ -333,8 +334,9 @@ def confusion_all_matrix(epoch=20, saved=True,
     import torch
     from geodown_training import limited_category
     from mmm import DataHandler as DH
-    from mmm import GeotagGCN
     from mmm import DatasetGeotag
+    from mmm import GeotagGCN
+    from mmm import GeoUtils as GU
     from tqdm import tqdm
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
@@ -347,8 +349,25 @@ def confusion_all_matrix(epoch=20, saved=True,
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
     rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    category = limited_category(rep_category)
+    # category = limited_category(rep_category)
+    category = limited_category(
+        rep_category,
+        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
+    )
     num_class = len(category)
+
+    geo_down_train = GU.down_dataset(
+        rep_category, category, 'train',
+        base_path=base_path
+        # base_path=input_path
+    )
+    geo_down_validate = GU.down_dataset(
+        rep_category, category, 'validate',
+        base_path=base_path
+        # base_path=input_path
+    )
+    DH.savePickle(geo_down_train, 'geo_down_train', input_path)
+    DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
 
     kwargs_DF = {
         'train': {
@@ -367,7 +386,7 @@ def confusion_all_matrix(epoch=20, saved=True,
     val_dataset = DatasetGeotag(**kwargs_DF['validate'])
 
     # maskの読み込み
-    mask = DH.loadPickle('mask_5.pickle', input_path)
+    mask = GU.down_mask(rep_category, category, saved=False)
 
     # 入力位置情報の正規化のためのパラメータ読み込み
     mean, std = DH.loadNpy('normalize_params', input_path)
@@ -390,19 +409,15 @@ def confusion_all_matrix(epoch=20, saved=True,
     # modelの設定
     model = GeotagGCN(
         class_num=num_class,
-        # loss_function=MyLossFunction(),
-        # optimizer=optim.SGD,
         learningrate=0.1,
         momentum=0.9,
         weight_decay=1e-4,
         fix_mask=mask,
         network_setting=gcn_settings,
         multigpu=False,
-        # backprop_weight=bp_weight
     )
     if epoch > 0:
-        model.loadmodel('{0:0=3}weight'.format(epoch),
-                        '../datas/geo_down/outputs/learned_small_3/')
+        model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
 
     def _update_backprop_weight(labels, fmask):
         '''
@@ -507,7 +522,11 @@ def confusion_all_matrix(epoch=20, saved=True,
 
 
 if __name__ == "__main__":
-    # confusion_all_matrix()
+    confusion_all_matrix(
+        epoch=0,
+        weight_path='../datas/geo_down/outputs/learned_basic_bp/',
+        outputs_path='../datas/geo_down/outputs/check/basic_bp/'
+    )
     # visualize_classmap()
     # plot_map()
     # visualize_training_data('bellagio')
