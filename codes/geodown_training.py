@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import numpy as np
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -81,7 +82,7 @@ if __name__ == "__main__":
 
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
-    rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
+    # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
     # category = limited_category(rep_category)
     category = limited_category(
         rep_category,
@@ -92,13 +93,13 @@ if __name__ == "__main__":
     # データの作成
     geo_down_train = GU.down_dataset(
         rep_category, category, 'train',
-        base_path=base_path
-        # base_path=input_path
+        # base_path=base_path
+        base_path=input_path
     )
     geo_down_validate = GU.down_dataset(
         rep_category, category, 'validate',
-        base_path=base_path
-        # base_path=input_path
+        # base_path=base_path
+        base_path=input_path
     )
     DH.savePickle(geo_down_train, 'geo_down_train', input_path)
     DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
@@ -146,6 +147,7 @@ if __name__ == "__main__":
         if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    bp_weight = np.power(bp_weight, 2)
 
     # 入力位置情報の正規化のためのパラメータ読み込み
     mean, std = DH.loadNpy('normalize_params', input_path)
@@ -156,8 +158,8 @@ if __name__ == "__main__":
         'rep_category': rep_category,
         'filepaths': {
             'relationship': base_path + 'geo_relationship.pickle',
-            'learned_weight': input_path + '020weight.pth'
-            # 'learned_weight': input_path + '200weight.pth'
+            # 'learned_weight': input_path + '020weight.pth'
+            'learned_weight': input_path + '200weight.pth'
         },
         'feature_dimension': 30,
         'simplegeonet_settings': {
@@ -207,6 +209,10 @@ if __name__ == "__main__":
     print('loss: {0}, recall: {1}, precision: {2}'.format(
         val_loss, val_recall, val_precision
     ))
+
+    writer.add_scalar('loss', train_loss, 0)
+    writer.add_scalar('recall', train_recall, 0)
+    writer.add_scalar('precision', train_precision, 0)
     print('------------------------------------------------------------------')
 
     # 学習
