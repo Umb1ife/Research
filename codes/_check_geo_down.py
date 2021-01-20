@@ -358,13 +358,13 @@ def confusion_all_matrix(epoch=20, saved=True,
 
     geo_down_train = GU.down_dataset(
         rep_category, category, 'train',
-        base_path=base_path
-        # base_path=input_path
+        # base_path=base_path
+        base_path=input_path
     )
     geo_down_validate = GU.down_dataset(
         rep_category, category, 'validate',
-        base_path=base_path
-        # base_path=input_path
+        # base_path=base_path
+        base_path=input_path
     )
     DH.savePickle(geo_down_train, 'geo_down_train', input_path)
     DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
@@ -524,8 +524,13 @@ def confusion_all_matrix(epoch=20, saved=True,
 if __name__ == "__main__":
     confusion_all_matrix(
         epoch=0,
-        weight_path='../datas/geo_down/outputs/learned_basic_bp/',
-        outputs_path='../datas/geo_down/outputs/check/basic_bp/'
+        weight_path='../datas/geo_down/outputs/learned_refined_bp/',
+        outputs_path='../datas/geo_down/outputs/check/learned_refined_bp/'
+    )
+    confusion_all_matrix(
+        epoch=20,
+        weight_path='../datas/geo_down/outputs/learned_refined_bp/',
+        outputs_path='../datas/geo_down/outputs/check/learned_refined_bp/'
     )
     # visualize_classmap()
     # plot_map()
