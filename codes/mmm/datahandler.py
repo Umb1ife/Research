@@ -5,7 +5,6 @@ import pickle
 import torch
 import torch.utils.data as data
 from PIL import Image
-from .mmfunction import makepath
 
 
 class DatasetFlickr(data.Dataset):
@@ -83,79 +82,61 @@ class DatasetGeotag(data.Dataset):
 
 class DataHandler:
     @staticmethod
-    def savePickle(_data, filename, directory=None, mode='wb'):
-        _filename = str(filename)
-        _filename = _filename if _filename[-1:-8:-1] == 'elkcip.' \
-            else _filename + '.pickle'
+    def savePickle(savedata, filename, directory=None, mode='wb'):
+        filename = str(filename)
+        filename = os.path.splitext(filename)[0] + '.pickle'
         if directory is not None:
-            _directory = directory if directory[-1:] == '/' \
-                else directory + '/'
-            _filename = _directory + _filename
+            os.makedirs(directory, exist_ok=True)
+            filename = os.path.join(directory, filename)
 
-        makepath(os.path.dirname(_filename))
-        with open(_filename, mode=mode) as f:
-            pickle.dump(_data, f)
+        pickle.dump(savedata, open(filename, mode=mode))
 
     @staticmethod
     def loadPickle(filename, directory=None, mode='rb'):
-        _filename = str(filename)
-        _filename = _filename if _filename[-1:-8:-1] == 'elkcip.' \
-            else _filename + '.pickle'
+        filename = str(filename)
+        filename = os.path.splitext(filename)[0] + '.pickle'
         if directory is not None:
-            _directory = directory if directory[-1:] == '/' \
-                else directory + '/'
-            _filename = _directory + _filename
+            filename = os.path.join(directory, filename)
 
-        if os.path.isfile(_filename):
-            with open(_filename, mode=mode) as f:
-                return pickle.load(f)
+        if os.path.isfile(filename):
+            return pickle.load(open(filename, mode=mode))
 
     @staticmethod
-    def saveNpy(_data, filename, directory=None):
-        _filename = str(filename)
+    def saveNpy(savedata, filename, directory=None):
+        filename = str(filename)
+        filename = os.path.splitext(filename)[0] + '.npy'
         if directory is not None:
-            _directory = directory if directory[-1:] == '/' \
-                else directory + '/'
-            _filename = _directory + _filename
+            os.makedirs(directory, exist_ok=True)
+            filename = os.path.join(directory, filename)
 
-        makepath(os.path.dirname(_filename))
-        np.save(_filename, _data, allow_pickle=True)
+        np.save(filename, savedata, allow_pickle=True)
 
     @staticmethod
     def loadNpy(filename, directory=None):
-        _filename = str(filename)
-        _filename = _filename if _filename[-1:-5:-1] == 'ypn.' \
-            else _filename + '.npy'
+        filename = str(filename)
+        filename = os.path.splitext(filename)[0] + '.npy'
         if directory is not None:
-            _directory = directory if directory[-1:] == '/' \
-                else directory + '/'
-            _filename = _directory + _filename
+            filename = os.path.join(directory, filename)
 
-        if os.path.isfile(_filename):
-            return np.load(_filename, allow_pickle=True)
+        if os.path.isfile(filename):
+            return np.load(filename, allow_pickle=True)
 
     @staticmethod
-    def saveJson(_data, filename, directory=None, mode='w'):
-        _filename = str(filename)
-        _filename = _filename if _filename[-1:-6:-1] == 'nosj.' \
-            else _filename + '.json'
+    def saveJson(savedata, filename, directory=None, mode='w'):
+        filename = str(filename)
+        filename = os.path.splitext(filename)[0] + '.json'
         if directory is not None:
-            _directory = directory if directory[-1:] == '/' \
-                else directory + '/'
-            _filename = _directory + _filename
+            os.makedirs(directory, exist_ok=True)
+            filename = os.path.join(directory, filename)
 
-        makepath(os.path.dirname(_filename))
-        json.dump(_data, open(_filename, mode=mode))
+        json.dump(savedata, open(filename, mode=mode))
 
     @staticmethod
     def loadJson(filename, directory=None, mode='rb'):
-        _filename = str(filename)
-        _filename = _filename if _filename[-1:-6:-1] == 'nosj.' \
-            else _filename + '.json'
+        filename = str(filename)
+        filename = os.path.splitext(filename)[0] + '.json'
         if directory is not None:
-            _directory = directory if directory[-1:] == '/' \
-                else directory + '/'
-            _filename = _directory + _filename
+            filename = os.path.join(directory, filename)
 
-        if os.path.isfile(_filename):
-            return json.load(open(_filename, mode=mode))
+        if os.path.isfile(filename):
+            return json.load(open(filename, mode=mode))

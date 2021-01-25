@@ -289,7 +289,6 @@ def get_training_images(threshold=0.1, phase='train'):
     import pickle
     import shutil
     from mmm import DataHandler as DH
-    from mmm import makepath
     from tqdm import tqdm
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
@@ -347,7 +346,7 @@ def get_training_images(threshold=0.1, phase='train'):
 
             path_fin = category[idx] + '/zero' if label[0][idx] == 0 \
                 else category[idx] + '/one'
-            makepath(outputs_path + path_fin)
+            os.makedirs(outputs_path + path_fin, exist_ok=True)
             shutil.copy(
                 path_top + 'inputs/images/' + phase + '/' + filename[0],
                 outputs_path + path_fin
