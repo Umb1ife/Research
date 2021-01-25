@@ -1,7 +1,6 @@
 import itertools
 import functools
 import time
-import os
 import sys
 import threading
 
