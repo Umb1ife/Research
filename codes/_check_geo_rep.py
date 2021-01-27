@@ -168,6 +168,7 @@ def confusion_all_matrix(epoch=200, saved=True,
     import torch
     from mmm import DataHandler as DH
     from mmm import DatasetGeotag
+    from mmm import GeoUtils as GU
     from mmm import RepGeoClassifier
     from tqdm import tqdm
 
@@ -179,6 +180,12 @@ def confusion_all_matrix(epoch=200, saved=True,
 
     category = DH.loadJson('category.json', input_path)
     num_class = len(category)
+
+    geo_rep_train, (mean, std) = GU.rep_dataset(category, 'train')
+    geo_rep_validate, _ = GU.rep_dataset(category, 'validate')
+    DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
+    DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
+    DH.saveNpy((mean, std), 'normalize_params', input_path)
 
     kwargs_DF = {
         'train': {
@@ -197,10 +204,7 @@ def confusion_all_matrix(epoch=200, saved=True,
     val_dataset = DatasetGeotag(**kwargs_DF['validate'])
 
     # maskの読み込み
-    mask = DH.loadPickle('mask_5.pickle', input_path)
-
-    # 入力位置情報の正規化のためのパラメータ読み込み
-    mean, std = DH.loadNpy('normalize_params', input_path)
+    mask = GU.rep_mask(category, saved=False)
 
     # modelの設定
     model = RepGeoClassifier(
@@ -213,7 +217,7 @@ def confusion_all_matrix(epoch=200, saved=True,
 
     if epoch > 0:
         model.loadmodel('{0:0=3}weight'.format(epoch),
-                        '../datas/geo_rep/outputs/learned/')
+                        '../datas/geo_rep/outputs/learned_newmodel/')
 
     def _update_backprop_weight(labels, fmask):
         '''

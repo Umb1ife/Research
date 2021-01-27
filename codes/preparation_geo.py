@@ -626,14 +626,16 @@ def get_geodatas(saved=True, savepath='../datas/geo_rep/inputs/locate_dataset/',
     return geotag_dataset
 
 
-def get_georep(saved=True, savepath='../datas/geo_rep/inputs/locate_dataset/',
-               stage='finetune', phase='train', thr=1, hops=2):
+def get_georep(saved=True, savepath='../datas/geo_rep/inputs/',
+               thr=1, hops=2):
     '''
     位置情報について上位クラスを取得
     '''
     from mmm import DataHandler as DH
 
     datas = '../datas/geo_rep/inputs/geo/local_df_area16_wocoth_kl5.pickle'
+    datas = './lda_new2.pickle'
+    datas = '../datas/geo_down/inputs/local_df_area16_wocoth_refined.pickle'
     datas = DH.loadPickle(datas)
     category = '../datas/gcn/inputs/category.json'
     category = DH.loadJson(category)
@@ -677,7 +679,7 @@ def get_georep(saved=True, savepath='../datas/geo_rep/inputs/locate_dataset/',
     geo_reps.sort()
 
     if saved:
-        DH.savePickle(geo_reps, 'geo_reps.pickle', '../datas/geo_rep/inputs/')
+        DH.savePickle(geo_reps, 'geo_reps.pickle', savepath)
 
     return geo_reps
     # -------------------------------------------------------------------------
@@ -709,9 +711,9 @@ if __name__ == "__main__":
     # make_tag2loc('train')
     # -------------------------------------------------------------------------
     # make_simdict(reverse=True)
-    make_simdict(reverse=False)
+    # make_simdict(reverse=False)
     # make_down_mask(reverse=False)
-    # get_georep()
+    get_georep()
     # make_geodown_dataset(phase='validate')
     # make_geodataset(stage='finetune', phase='train', refined=False, thr=1)
     # make_imlist()
