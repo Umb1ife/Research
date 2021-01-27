@@ -70,12 +70,12 @@ if __name__ == "__main__":
         'train': {
             'class_num': num_class,
             'transform': torch.tensor,
-            'data_path': input_path + 'geo_rep_train.pickle'
+            'data': geo_rep_train
         },
         'validate': {
             'class_num': num_class,
             'transform': torch.tensor,
-            'data_path': input_path + 'geo_rep_validate.pickle'
+            'data': geo_rep_validate
         },
     }
 
@@ -143,6 +143,24 @@ if __name__ == "__main__":
 
     # 指定epoch数学習
     model.savemodel('000weight.pth', mpath)
+    train_loss, train_recall, train_precision, _, _, _ \
+        = model.validate(train_loader)
+    val_loss, val_recall, val_precision, _, _, _ \
+        = model.validate(val_loader)
+    print('epoch: {0}'.format(0))
+    print('loss: {0}, recall: {1}, precision: {2}'.format(
+        train_loss, train_recall, train_precision
+    ))
+    print('loss: {0}, recall: {1}, precision: {2}'.format(
+        val_loss, val_recall, val_precision
+    ))
+
+    writer.add_scalar('loss', train_loss, 0)
+    writer.add_scalar('recall', train_recall, 0)
+    writer.add_scalar('precision', train_precision, 0)
+    print('------------------------------------------------------------------')
+
+    # 学習
     for epoch in range(args.start_epoch, epochs + 1):
         train_loss, train_recall, train_precision, _, _, _ \
             = model.train(train_loader)
