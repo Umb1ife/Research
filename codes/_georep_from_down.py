@@ -100,7 +100,8 @@ for tag in local_dict:
 
 # get representative tag
 # visual_df = pd.read_pickle('2017_usa/visual_df_area16_wocoth_new.pickle')
-visual_df = DH.loadPickle('../datas/prepare/inputs/visual_df_area16_wocoth.pickle')
+# visual_df = DH.loadPickle('../datas/prepare/inputs/visual_df_area16_wocoth.pickle')
+visual_df = DH.loadPickle('../datas/geo_down/inputs/visual_df_area16_wocoth.pickle')
 visual_dict = visual_df.to_dict('index')
 base_visual_list = list(set(visual_dict.keys()) & set(list(local_dict.keys())))
 for tag in tqdm(base_visual_list):

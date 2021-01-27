@@ -183,20 +183,17 @@ def confusion_all_matrix(epoch=200, saved=True,
 
     geo_rep_train, (mean, std) = GU.rep_dataset(category, 'train')
     geo_rep_validate, _ = GU.rep_dataset(category, 'validate')
-    DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
-    DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
-    DH.saveNpy((mean, std), 'normalize_params', input_path)
 
     kwargs_DF = {
         'train': {
             'class_num': num_class,
             'transform': torch.tensor,
-            'data_path': input_path + 'geo_rep_train.pickle'
+            'data': geo_rep_train
         },
         'validate': {
             'class_num': num_class,
             'transform': torch.tensor,
-            'data_path': input_path + 'geo_rep_validate.pickle'
+            'data': geo_rep_validate
         },
     }
 

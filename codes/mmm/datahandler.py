@@ -48,7 +48,7 @@ class DatasetFlickr(data.Dataset):
 
 
 class DatasetGeotag(data.Dataset):
-    def __init__(self, *, class_num, transform=None, data_path=''):
+    def __init__(self, *, class_num, transform=None, data=''):
         '''
         コンストラクタ
 
@@ -56,10 +56,10 @@ class DatasetGeotag(data.Dataset):
             filenames: 'Annotation'，'Category_to_Index'
                        をkeyにそれぞれのpathをvalueとして持つ辞書
             transform: torchvision.transform.Composeについて指定している辞書
-            data_path: 位置情報データセットのpath
+            data: 位置情報データセット
         '''
         self._transform = transform
-        self._data = pickle.load(open(data_path, 'rb'))
+        self._data = data
         self._class_num = class_num
 
     def __len__(self):

@@ -108,12 +108,12 @@ if __name__ == "__main__":
         'train': {
             'class_num': num_class,
             'transform': torch.tensor,
-            'data_path': input_path + 'geo_down_train.pickle'
+            'data': geo_down_train
         },
         'validate': {
             'class_num': num_class,
             'transform': torch.tensor,
-            'data_path': input_path + 'geo_down_validate.pickle'
+            'data': geo_down_validate
         },
     }
 
