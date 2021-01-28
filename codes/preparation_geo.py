@@ -633,9 +633,9 @@ def get_georep(saved=True, savepath='../datas/geo_rep/inputs/',
     '''
     from mmm import DataHandler as DH
 
-    datas = '../datas/geo_rep/inputs/geo/local_df_area16_wocoth_kl5.pickle'
-    datas = './lda_new2.pickle'
-    datas = '../datas/geo_down/inputs/local_df_area16_wocoth_refined.pickle'
+    # datas = '../datas/geo_rep/inputs/geo/local_df_area16_wocoth_kl5.pickle'
+    # datas = './lda_new2.pickle'
+    datas = '../datas/geo_down/inputs/local_df_area16_wocoth_refined2.pickle'
     datas = DH.loadPickle(datas)
     category = '../datas/gcn/inputs/category.json'
     category = DH.loadJson(category)

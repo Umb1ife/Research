@@ -3,17 +3,23 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     import folium
     import numpy as np
     from mmm import DataHandler as DH
+    from mmm import GeoUtils as GU
     from geodown_training import limited_category
 
     input_path = '../datas/geo_down/inputs/'
-    datas = DH.loadPickle('geo_down_train.pickle', input_path)
-    category = DH.loadJson('category.json', input_path)
+    # datas = DH.loadPickle('geo_down_train.pickle', input_path)
+    rep_category = DH.loadJson('upper_category.json', input_path)
     mean, std = DH.loadNpy('normalize_params.npy', input_path)
     # -------------------------------------------------------------------------
     # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    # category = limited_category(rep_category)
-    category = list(category.keys())
+    category = limited_category(rep_category)
     # class_num = len(category)
+    datas = GU.down_dataset(
+        rep_category, category, phase,
+        # base_path='../datas/geo_down/inputs/'
+        base_path='../datas/bases/'
+    )
+    category = list(category.keys())
 
     if sort_std:
         groups = {key: [] for key in category}

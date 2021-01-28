@@ -5,6 +5,41 @@ from tqdm import tqdm
 
 class GeoUtils:
     @staticmethod
+    def base_dataset(x_range=(-175, -64), y_range=(18, 71), fineness=(20, 20),
+                     numdata_sqrt_oneclass=32):
+        print('preparing dataset for basenet ...')
+        x_min, x_max = sorted(x_range)
+        y_min, y_max = sorted(y_range)
+        xgrid = np.arange(
+            x_min, x_max,
+            (x_max - x_min) / (fineness[0] * numdata_sqrt_oneclass)
+        )
+        ygrid = np.arange(
+            y_min, y_max,
+            (y_max - y_min) / (fineness[1] * numdata_sqrt_oneclass)
+        )
+        # x = np.linspace(x_min, x_max, fineness[0] * numdata_sqrt_oneclass)
+        # y = np.linspace(y_min, y_max, fineness[1] * numdata_sqrt_oneclass)
+
+        locate_tags_dictlist = []
+        temp = []
+        xl, yl = (x_max - x_min) / fineness[0], (y_max - y_min) / fineness[1]
+        for x in tqdm(xgrid):
+            xlabel = (x - x_min) // xl
+            for y in ygrid:
+                ylabel = (y - y_min) // yl
+
+                locate_tags_dictlist.append({
+                    'labels': [int(ylabel * fineness[0] + xlabel)],
+                    'locate': [x, y]
+                })
+                temp.append([x, y])
+
+        mean, std = np.mean(temp, axis=0), np.std(temp, axis=0)
+
+        return locate_tags_dictlist, (mean, std)
+
+    @staticmethod
     def rep_dataset(category, phase='train', base_path='../datas/bases/'):
         print('preparing dataset: {0} ...'.format(phase))
         lda = DH.loadPickle('local_df_area16_wocoth_new.pickle', base_path)

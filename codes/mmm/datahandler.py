@@ -48,7 +48,7 @@ class DatasetFlickr(data.Dataset):
 
 
 class DatasetGeotag(data.Dataset):
-    def __init__(self, *, class_num, transform=None, data=''):
+    def __init__(self, *, class_num, transform=None, data=None):
         '''
         コンストラクタ
 
@@ -73,8 +73,36 @@ class DatasetGeotag(data.Dataset):
         target = np.zeros(self._class_num, np.float32)
         target[sorted(item['labels'])] = 1
 
-        # return locate, target, item['file_name']
         return locate, target, 0
+
+    def num_category(self):
+        return len(self._class_num)
+
+
+class DatasetGeobase(data.Dataset):
+    def __init__(self, *, class_num, transform=None, data=None):
+        '''
+        コンストラクタ
+
+        Arguments:
+            filenames: 'Annotation'，'Category_to_Index'
+                       をkeyにそれぞれのpathをvalueとして持つ辞書
+            transform: torchvision.transform.Composeについて指定している辞書
+            data: 位置情報データセット
+        '''
+        self._transform = transform
+        self._data = data
+        self._class_num = class_num
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, index):
+        item = self._data[index]
+        locate = item['locate'] if self._transform is None \
+            else self._transform(item['locate'], dtype=torch.float32)
+
+        return locate, item['labels'][0], 0
 
     def num_category(self):
         return len(self._class_num)

@@ -3,13 +3,19 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     import folium
     import numpy as np
     from mmm import DataHandler as DH
+    from mmm import GeoUtils as GU
 
     input_path = '../datas/geo_rep/inputs/'
-    datas = DH.loadPickle('geo_rep_train.pickle', input_path)
+    # datas = DH.loadPickle('geo_rep_train.pickle', input_path)
     category = DH.loadJson('category.json', input_path)
-    mean, std = DH.loadNpy('normalize_params.npy', input_path)
+    # mean, std = DH.loadNpy('normalize_params.npy', input_path)
     # -------------------------------------------------------------------------
 
+    datas, (mean, std) = GU.rep_dataset(
+        category, phase,
+        # base_path='../datas/geo_down/inputs/'
+        base_path=input_path
+    )
     category = list(category.keys())
     # class_num = len(category)
 
@@ -86,7 +92,7 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     # load classifier
     from mmm import DataHandler as DH
     category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
-    category = {'lasvegas': 0, 'newyorkcity': 1}
+    # category = {'lasvegas': 0, 'newyorkcity': 1}
     mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
     # -------------------------------------------------------------------------
 
@@ -321,5 +327,6 @@ def confusion_all_matrix(epoch=200, saved=True,
 if __name__ == "__main__":
     # confusion_all_matrix()
     # visualize_classmap(weight='../datas/geo_rep/outputs/learned_small/010weight.pth')
+    # plot_map()
 
     print('finish.')
