@@ -50,8 +50,12 @@ def make_backprop_ratio(train_dataset, category_length, mask,
         return fixmask
 
     # ---入力画像のタグから振り分け------------------------------------------
-    counts = [[0, 0] for _ in range(category_length)]
+    counts = np.zeros((category_length, 2))
     for _, label, _ in tqdm(loader):
+        if label.sum() == 0:
+            counts[:, 0] += 1
+            continue
+
         fix_mask = _fixed_mask(label, mask)
         for idx, flg in enumerate(fix_mask[0]):
             if flg == 1:

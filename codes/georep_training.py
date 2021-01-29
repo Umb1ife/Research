@@ -65,6 +65,9 @@ if __name__ == "__main__":
     DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
     DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
     # DH.saveNpy((mean, std), 'normalize_params', input_path)
+    zerolength = len(geo_rep_train)
+    geo_rep_train = GU.zerodata_augmentation(geo_rep_train)
+    zerolength = len(geo_rep_train) - zerolength
 
     kwargs_DF = {
         'train': {
@@ -105,21 +108,21 @@ if __name__ == "__main__":
     mask = GU.rep_mask(category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    bp_weight = DH.loadNpy('backprop_weight', input_path) \
-        if args.load_backprop_weight else None
-    bp_weight = bp_weight if bp_weight is not None \
-        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    # bp_weight = DH.loadNpy('backprop_weight', input_path) \
+    #     if args.load_backprop_weight else None
+    # bp_weight = bp_weight if bp_weight is not None \
+    #     else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
 
     model = RepGeoClassifier(
         class_num=num_class,
-        loss_function=MyLossFunction(reduction='none'),
+        # loss_function=MyLossFunction(reduction='none'),
+        loss_function=MyLossFunction(),
         optimizer=optim.SGD,
         learningrate=args.learning_rate,
         momentum=0.9,
         fix_mask=mask,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        backprop_weight=bp_weight,
-        # network_setting={'class_num': num_class, 'mean': mean, 'std': std},
+        # backprop_weight=bp_weight,
         network_setting={
             'num_classes': num_class,
             'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
