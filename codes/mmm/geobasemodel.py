@@ -7,8 +7,7 @@ from tqdm import tqdm
 
 
 class BlockRecognizer(nn.Module):
-    def __init__(self, x_range=(-175, -64), y_range=(18, 71),
-                 fineness=(20, 20), mean=(0, 0), std=(1, 1)):
+    def __init__(self, fineness=(20, 20), mean=(0, 0), std=(1, 1)):
         super().__init__()
         inter_n1 = fineness[0]
         inter_n2 = sum(fineness)

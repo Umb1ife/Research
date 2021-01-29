@@ -77,14 +77,6 @@ if __name__ == "__main__":
         train_loader.pin_memory = True
         cudnn.benchmark = True
 
-    BR_settings = {
-        'x_range': (-175, -64),
-        'y_range': (18, 71),
-        'fineness': (20, 20),
-        'mean': mean,
-        'std': std
-    }
-
     model = GeoBaseNet(
         class_num=num_class,
         loss_function=torch.nn.NLLLoss(),
@@ -92,7 +84,7 @@ if __name__ == "__main__":
         learningrate=args.learning_rate,
         momentum=0.9,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        network_setting=BR_settings,
+        network_setting={'fineness': (20, 20), 'mean': mean, 'std': std},
     )
 
     # -------------------------------------------------------------------------

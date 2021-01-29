@@ -1,30 +1,28 @@
-# import json
 import numpy as np
 import torch
 import torch.nn as nn
 from .datahandler import DataHandler
 from .gcnmodel import GCNLayer
-from .georepmodel import SimpleGeoNet
+from .geobasemodel import BlockRecognizer
 from .mymodel import MyBaseModel
 
 
 class GCNModel(nn.Module):
     def __init__(self, category, rep_category, filepaths={},
-                 feature_dimension=30, simplegeonet_settings={}):
+                 base_weight_path='', BR_settings={}):
         '''
         コンストラクタ
         '''
         super().__init__()
         self._use_gpu = torch.cuda.is_available()
-        self._feature_dimension = feature_dimension
         self.num_classes = len(category)
 
         relationship = DataHandler.loadPickle(filepaths['relationship'])
         CNN_weight = torch.load(filepaths['learned_weight'])
 
         # H_0の作成
-        fc_weight = np.array(CNN_weight['fc3.weight'].cpu(), dtype=np.float64)
-        H_0 = np.zeros((self.num_classes, feature_dimension))
+        fc_weight = np.array(CNN_weight['fc.weight'].cpu(), dtype=np.float64)
+        H_0 = np.zeros((self.num_classes, 100))
         for label, index in rep_category.items():
             H_0[category[label]] = fc_weight[index]
 
@@ -32,7 +30,6 @@ class GCNModel(nn.Module):
         A = np.zeros((self.num_classes, self.num_classes), dtype=int)
         all_category_labels = list(category.keys())
 
-        # for label, _ in upper_category.items():
         for label, _ in category.items():
             if label not in relationship:
                 continue
@@ -43,14 +40,14 @@ class GCNModel(nn.Module):
                 if child in all_category_labels:
                     A[category[label]][category[child]] = 1
 
-        # GeoRepModelの最終層前までを取得
-        self._before_fc = SimpleGeoNet(**simplegeonet_settings)
+        # 特徴抽出の部分を定義
+        self._before_fc = BlockRecognizer(**BR_settings)
+        self._before_fc.load_state_dict(torch.load(base_weight_path))
         self._mean = self._before_fc._mean
         self._std = self._before_fc._std
-        self._before_fc.load_state_dict(CNN_weight)
-        self._before_fc = torch.nn.Sequential(
-            *(list(self._before_fc.children())[:-1])
-        )
+        self._before_fc = torch.nn.Sequential(*(
+            list(self._before_fc.children())[:-2]
+        ))
 
         # モデルの定義
         # 層を追加するときは下のfowardも変更
@@ -76,7 +73,7 @@ class GCNModel(nn.Module):
 
         inputs = (inputs - self._mean) / self._std
         output = self._before_fc(inputs)
-        output = output.view(1, self._feature_dimension)
+        output = output.view(1, 100)
 
         return output
 
