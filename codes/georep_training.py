@@ -64,7 +64,10 @@ if __name__ == "__main__":
     geo_rep_validate, _ = GU.rep_dataset(category, 'validate')
     DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
     DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
-    DH.saveNpy((mean, std), 'normalize_params', input_path)
+    # DH.saveNpy((mean, std), 'normalize_params', input_path)
+    zerolength = len(geo_rep_train)
+    geo_rep_train = GU.zerodata_augmentation(geo_rep_train)
+    zerolength = len(geo_rep_train) - zerolength
 
     kwargs_DF = {
         'train': {
@@ -105,21 +108,26 @@ if __name__ == "__main__":
     mask = GU.rep_mask(category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    bp_weight = DH.loadNpy('backprop_weight', input_path) \
-        if args.load_backprop_weight else None
-    bp_weight = bp_weight if bp_weight is not None \
-        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    # bp_weight = DH.loadNpy('backprop_weight', input_path) \
+    #     if args.load_backprop_weight else None
+    # bp_weight = bp_weight if bp_weight is not None \
+    #     else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
 
     model = RepGeoClassifier(
         class_num=num_class,
-        loss_function=MyLossFunction(reduction='none'),
+        # loss_function=MyLossFunction(reduction='none'),
+        loss_function=MyLossFunction(),
         optimizer=optim.SGD,
         learningrate=args.learning_rate,
         momentum=0.9,
         fix_mask=mask,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        backprop_weight=bp_weight,
-        network_setting={'class_num': num_class, 'mean': mean, 'std': std},
+        # backprop_weight=bp_weight,
+        network_setting={
+            'num_classes': num_class,
+            'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+            'BR_settings': {'fineness': (20, 20)}
+        }
     )
 
     # -------------------------------------------------------------------------
@@ -142,11 +150,8 @@ if __name__ == "__main__":
     )
 
     # 指定epoch数学習
-    model.savemodel('000weight.pth', mpath)
-    train_loss, train_recall, train_precision, _, _, _ \
-        = model.validate(train_loader)
-    val_loss, val_recall, val_precision, _, _, _ \
-        = model.validate(val_loader)
+    train_loss, train_recall, train_precision = model.validate(train_loader)
+    val_loss, val_recall, val_precision = model.validate(val_loader)
     print('epoch: {0}'.format(0))
     print('loss: {0}, recall: {1}, precision: {2}'.format(
         train_loss, train_recall, train_precision
@@ -158,23 +163,22 @@ if __name__ == "__main__":
     writer.add_scalar('loss', train_loss, 0)
     writer.add_scalar('recall', train_recall, 0)
     writer.add_scalar('precision', train_precision, 0)
+    model.savemodel('000weight.pth', mpath)
     print('------------------------------------------------------------------')
 
     # 学習
     for epoch in range(args.start_epoch, epochs + 1):
-        train_loss, train_recall, train_precision, _, _, _ \
-            = model.train(train_loader)
-        val_loss, val_recall, val_precision, _, _, _ \
-            = model.validate(val_loader)
+        train_loss, train_recall, train_precision = model.train(train_loader)
+        val_loss, val_recall, val_precision = model.validate(val_loader)
 
-        print(
-            'epoch %d, loss: %.4f val_loss: %.4f train_recall: %.4f \
-                val_recall: %.4f train_precision: %.4f val_precision: %.4f'
-            % (
-                epoch, train_loss, val_loss, train_recall,
-                val_recall, train_precision, val_precision
-            )
-        )
+        print('epoch: {0}'.format(epoch))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            train_loss, train_recall, train_precision
+        ))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            val_loss, val_recall, val_precision
+        ))
+        print('--------------------------------------------------------------')
 
         writer.add_scalars(
             'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch

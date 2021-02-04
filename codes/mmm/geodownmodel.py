@@ -1,30 +1,30 @@
-# import json
 import numpy as np
 import torch
 import torch.nn as nn
 from .datahandler import DataHandler
 from .gcnmodel import GCNLayer
-from .georepmodel import SimpleGeoNet
+from .geobasemodel import BlockRecognizer
 from .mymodel import MyBaseModel
+from torch.autograd import Variable
+from tqdm import tqdm
 
 
 class GCNModel(nn.Module):
     def __init__(self, category, rep_category, filepaths={},
-                 feature_dimension=30, simplegeonet_settings={}):
+                 base_weight_path='', BR_settings={}):
         '''
         コンストラクタ
         '''
         super().__init__()
         self._use_gpu = torch.cuda.is_available()
-        self._feature_dimension = feature_dimension
         self.num_classes = len(category)
 
         relationship = DataHandler.loadPickle(filepaths['relationship'])
         CNN_weight = torch.load(filepaths['learned_weight'])
 
         # H_0の作成
-        fc_weight = np.array(CNN_weight['fc3.weight'].cpu(), dtype=np.float64)
-        H_0 = np.zeros((self.num_classes, feature_dimension))
+        fc_weight = np.array(CNN_weight['fc.weight'].cpu(), dtype=np.float64)
+        H_0 = np.zeros((self.num_classes, 100))
         for label, index in rep_category.items():
             H_0[category[label]] = fc_weight[index]
 
@@ -32,7 +32,6 @@ class GCNModel(nn.Module):
         A = np.zeros((self.num_classes, self.num_classes), dtype=int)
         all_category_labels = list(category.keys())
 
-        # for label, _ in upper_category.items():
         for label, _ in category.items():
             if label not in relationship:
                 continue
@@ -43,14 +42,14 @@ class GCNModel(nn.Module):
                 if child in all_category_labels:
                     A[category[label]][category[child]] = 1
 
-        # GeoRepModelの最終層前までを取得
-        self._before_fc = SimpleGeoNet(**simplegeonet_settings)
+        # 特徴抽出の部分を定義
+        self._before_fc = BlockRecognizer(**BR_settings)
+        self._before_fc.load_state_dict(torch.load(base_weight_path))
         self._mean = self._before_fc._mean
         self._std = self._before_fc._std
-        self._before_fc.load_state_dict(CNN_weight)
-        self._before_fc = torch.nn.Sequential(
-            *(list(self._before_fc.children())[:-1])
-        )
+        self._before_fc = torch.nn.Sequential(*(
+            list(self._before_fc.children())[:-2]
+        ))
 
         # モデルの定義
         # 層を追加するときは下のfowardも変更
@@ -76,7 +75,7 @@ class GCNModel(nn.Module):
 
         inputs = (inputs - self._mean) / self._std
         output = self._before_fc(inputs)
-        output = output.view(1, self._feature_dimension)
+        output = output.view(1, 100)
 
         return output
 
@@ -106,3 +105,59 @@ class GeotagGCN(MyBaseModel):
             momentum=self._momentum,
             weight_decay=self._weight_decay
         )
+
+    def _zero_weight(self, labels):
+        weight = np.ones(labels.shape, int) * self._backprop_weight[0]
+        weight = torch.Tensor(weight).cuda() if self._use_gpu else weight
+
+        return weight
+
+    def _processing_one_epoch(self, mode, dataset, epoch):
+        '''
+        1 epochで行う処理の記述
+
+        return:
+            tuple (loss, recall, precision, filenames, predicts, labels)
+            filenames: トレーニングに用いた画像のファイル名．
+            predict, labels: filenameに対応するラベルの予測値と正解ラベル
+        '''
+        running_loss, correct, total, pred_total = 0, 0, 0, 0
+
+        for i, (images, labels, filename) in enumerate(tqdm(dataset)):
+            if self._use_gpu:
+                images = Variable(images).cuda()
+                labels = Variable(labels).cuda()
+
+            outputs = self._model(images)
+            predicted = np.array(outputs.cpu().data) >= 0
+
+            if labels.sum() == 0:
+                batch_loss = self._loss_function(
+                    outputs, labels,
+                    self._zero_weight(labels)
+                )
+            else:
+                # lossの計算
+                batch_loss = self._loss_function(
+                    outputs, labels, self._update_backprop_weight(labels)
+                )
+
+                # lossとかrecallとかprecisionとかを出すために必要な値を計算
+                running_loss += float(batch_loss)
+                correct += np.sum(np.logical_and(
+                    np.array(labels.cpu().data), predicted)
+                )
+                total += labels.data.sum()
+                pred_total += predicted.sum()
+
+            # modeが'train'の時はbackprop
+            if mode == 'train':
+                self._optimizer.zero_grad()
+                batch_loss.backward()
+                self._optimizer.step()
+
+        epoch_loss = running_loss / len(dataset)
+        recall = correct / total
+        precision = 0.0 if pred_total == 0 else correct / pred_total
+
+        return epoch_loss, recall, precision

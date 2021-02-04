@@ -51,6 +51,7 @@ def visualize_classmap(weight='../datas/geo_base/outputs/learned/200weight.pth',
     import torch
     from mmm import GeoBaseNet
     from mmm import GeoUtils as GU
+    from tqdm import tqdm
 
     base_setting = {
         'x_range': (-175, -64),
@@ -62,8 +63,6 @@ def visualize_classmap(weight='../datas/geo_base/outputs/learned/200weight.pth',
     num_class = base_setting['fineness'][0] * base_setting['fineness'][1]
 
     BR_settings = {
-        'x_range': (-175, -64),
-        'y_range': (18, 71),
         'fineness': (20, 20),
         'mean': mean,
         'std': std
@@ -109,9 +108,9 @@ def visualize_classmap(weight='../datas/geo_base/outputs/learned/200weight.pth',
 
     # -------------------------------------------------------------------------
     # plot
-    for lat in lats:
+    for lat in tqdm(lats):
         for lng in lngs:
-            label = model.predict(torch.Tensor([[lng, lat]]), labeling=True)
+            label = model.predict(torch.Tensor([lng, lat]), labeling=True)
             label = int(label[0])
             if label not in limited:
                 continue

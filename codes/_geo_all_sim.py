@@ -27,7 +27,36 @@ class GeoSim:
 
         return distrib / np.where(sum_dist == 0, 1, sum_dist)
 
+    def _data_shaping(self, lda):
+        return [
+            (idx, self._cal_distribution(data['geo']))
+            for idx, data in tqdm(lda.iterrows(), total=lda.shape[0])
+            if data['geo']
+        ]
+
     def calculate(self, lda):
+        lda = self._data_shaping(lda)
+        all_sim_dict = {}
+        for idx, (tag1, data1) in enumerate(tqdm(lda[:-1])):
+            for tag2, data2 in lda[idx:]:
+                d1 = entropy(data1, data2)
+                d2 = entropy(data2, data1)
+
+                if d1 > 10 and d2 > 10:
+                    continue
+
+                if tag1 not in all_sim_dict:
+                    all_sim_dict[tag1] = {}
+
+                if tag2 not in all_sim_dict:
+                    all_sim_dict[tag2] = {}
+
+                all_sim_dict[tag1][tag2] = d2
+                all_sim_dict[tag2][tag1] = d1
+
+        return all_sim_dict
+
+    def _calculate(self, lda):
         all_sim_dict = {}
         for idx1, data1 in tqdm(lda.iterrows(), total=lda.shape[0]):
             if not data1['geo']:
@@ -62,7 +91,8 @@ class GeoSim:
 
 if __name__ == "__main__":
     lda_o = DH.loadPickle(
-        '../datas/geo_down/inputs/local_df_area16_wocoth_new.pickle'
+        # '../datas/geo_down/inputs/local_df_area16_wocoth_new.pickle'
+        '../datas/bases/local_df_area16_wocoth_new.pickle'
     )
     asd = GeoSim().calculate(lda_o)
 
