@@ -23,7 +23,7 @@ CMD ["/usr/sbin/sshd", "-D"]
 # after here, required settings (DON'T comment out)
 # --install required packages and tmux-----------------------------------------
 RUN apt-get update && apt-get install -y \
-    tmux sqlite3 libsqlite3-dev libcurl4-gnutls-dev libtiff5-dev
+    tmux sqlite3 libsqlite3-dev libcurl4-gnutls-dev libtiff5-dev fonts-ipaexfont
 
 # --install PROJ---------------------------------------------------------------
 RUN cd /workspace

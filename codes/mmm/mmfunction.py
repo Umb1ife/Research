@@ -1,7 +1,6 @@
 import itertools
 import functools
 import time
-import os
 import sys
 import threading
 
@@ -61,17 +60,3 @@ def loading_animation(process_name, animation_type='circle'):
 
         return wrapper
     return _loading_animation
-
-
-def makepath(mkpath):
-    '''
-    指定したパスが存在しなければ生成する関数
-    '''
-    if mkpath == '' or mkpath == '.' or mkpath == './':
-        return
-
-    if mkpath[-1:] != '/':
-        mkpath = mkpath + '/'
-
-    if not os.path.exists(mkpath):
-        os.makedirs(mkpath)

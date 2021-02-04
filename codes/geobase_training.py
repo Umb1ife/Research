@@ -4,33 +4,31 @@ import os
 import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
-from mmm import DataHandler as DH
-from mmm import DatasetGeotag
+# from mmm import DataHandler as DH
+from mmm import DatasetGeobase
+from mmm import GeoBaseNet
 from mmm import GeoUtils as GU
-from mmm import MakeBPWeight
-from mmm import RepGeoClassifier
 from torch.utils.tensorboard import SummaryWriter
 
 
-parser = argparse.ArgumentParser(description='Fine-tuning')
+parser = argparse.ArgumentParser(description='pretrained model')
 parser.add_argument('--epochs', '-E', default=200, type=int, metavar='N')
-parser.add_argument('--batch_size', '-B', default=1, type=int, metavar='N')
+parser.add_argument('--batch_size', '-B', default=256, type=int, metavar='N')
 parser.add_argument('--load_mask', action='store_true')
 parser.add_argument('--load_backprop_weight', action='store_true')
 parser.add_argument(
-    '--device_ids', '-D', default='0', type=str, metavar="'i, j, k'"
+    '--device_ids', '-D', default='0, 1, 2, 3', type=str, metavar="'i, j, k'"
 )
 parser.add_argument(
-    '--inputs_path', '-I', default='../datas/geo_rep/inputs', type=str,
+    '--inputs_path', '-I', default='../datas/geo_base/inputs', type=str,
     metavar='path of directory containing input data'
 )
 parser.add_argument(
-    '--outputs_path', '-O', default='../datas/geo_rep/outputs/learned',
+    '--outputs_path', '-O', default='../datas/geo_base/outputs/learned',
     type=str, metavar='path of directory trained model saved'
 )
 parser.add_argument(
-    '--logdir', '-L', default='../datas/geo_rep/log', type=str,
+    '--logdir', '-L', default='../datas/geo_base/log', type=str,
     metavar='path of directory log saved'
 )
 parser.add_argument('--workers', '-W', default=4, type=int, metavar='N')
@@ -55,44 +53,21 @@ if __name__ == "__main__":
     # データの読み込み先
     input_path = args.inputs_path if args.inputs_path[-1:] == '/' \
         else args.inputs_path + '/'
-    category = DH.loadJson('category.json', input_path)
-    # category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    num_class = len(category)
-
-    # データの作成
-    geo_rep_train, (mean, std) = GU.rep_dataset(category, 'train')
-    geo_rep_validate, _ = GU.rep_dataset(category, 'validate')
-    DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
-    DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
-    # DH.saveNpy((mean, std), 'normalize_params', input_path)
-    zerolength = len(geo_rep_train)
-    geo_rep_train = GU.zerodata_augmentation(geo_rep_train)
-    zerolength = len(geo_rep_train) - zerolength
-
-    kwargs_DF = {
-        'train': {
-            'class_num': num_class,
-            'transform': torch.tensor,
-            'data': geo_rep_train
-        },
-        'validate': {
-            'class_num': num_class,
-            'transform': torch.tensor,
-            'data': geo_rep_validate
-        },
+    base_setting = {
+        'x_range': (-175, -64),
+        'y_range': (18, 71),
+        'fineness': (20, 20),
+        'numdata_sqrt_oneclass': 32
     }
-
-    train_dataset = DatasetGeotag(**kwargs_DF['train'])
-    val_dataset = DatasetGeotag(**kwargs_DF['validate'])
-
+    base_train, (mean, std) = GU.base_dataset(**base_setting)
+    num_class = base_setting['fineness'][0] * base_setting['fineness'][1]
+    train_dataset = DatasetGeobase(
+        class_num=num_class,
+        transform=torch.tensor,
+        data=base_train,
+    )
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        shuffle=True,
-        batch_size=batchsize,
-        num_workers=numwork
-    )
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset,
         shuffle=True,
         batch_size=batchsize,
         num_workers=numwork
@@ -100,34 +75,16 @@ if __name__ == "__main__":
 
     if torch.cuda.is_available():
         train_loader.pin_memory = True
-        val_loader.pin_memory = True
         cudnn.benchmark = True
 
-    # maskの読み込み
-    mask = DH.loadPickle('mask_5', input_path) if args.load_mask else None
-    mask = GU.rep_mask(category) if mask is None else mask
-
-    # 誤差伝播の重みの読み込み
-    # bp_weight = DH.loadNpy('backprop_weight', input_path) \
-    #     if args.load_backprop_weight else None
-    # bp_weight = bp_weight if bp_weight is not None \
-    #     else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
-
-    model = RepGeoClassifier(
+    model = GeoBaseNet(
         class_num=num_class,
-        # loss_function=MyLossFunction(reduction='none'),
-        loss_function=MyLossFunction(),
+        loss_function=torch.nn.NLLLoss(),
         optimizer=optim.SGD,
         learningrate=args.learning_rate,
         momentum=0.9,
-        fix_mask=mask,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        # backprop_weight=bp_weight,
-        network_setting={
-            'num_classes': num_class,
-            'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-            'BR_settings': {'fineness': (20, 20)}
-        }
+        network_setting={'fineness': (20, 20), 'mean': mean, 'std': std},
     )
 
     # -------------------------------------------------------------------------
@@ -150,52 +107,31 @@ if __name__ == "__main__":
     )
 
     # 指定epoch数学習
+    model.savemodel('000weight.pth', mpath)
     train_loss, train_recall, train_precision = model.validate(train_loader)
-    val_loss, val_recall, val_precision = model.validate(val_loader)
     print('epoch: {0}'.format(0))
     print('loss: {0}, recall: {1}, precision: {2}'.format(
         train_loss, train_recall, train_precision
-    ))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        val_loss, val_recall, val_precision
     ))
 
     writer.add_scalar('loss', train_loss, 0)
     writer.add_scalar('recall', train_recall, 0)
     writer.add_scalar('precision', train_precision, 0)
-    model.savemodel('000weight.pth', mpath)
     print('------------------------------------------------------------------')
 
     # 学習
     for epoch in range(args.start_epoch, epochs + 1):
         train_loss, train_recall, train_precision = model.train(train_loader)
-        val_loss, val_recall, val_precision = model.validate(val_loader)
 
         print('epoch: {0}'.format(epoch))
         print('loss: {0}, recall: {1}, precision: {2}'.format(
             train_loss, train_recall, train_precision
         ))
-        print('loss: {0}, recall: {1}, precision: {2}'.format(
-            val_loss, val_recall, val_precision
-        ))
         print('--------------------------------------------------------------')
 
-        writer.add_scalars(
-            'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
-        )
-        writer.add_scalars(
-            'recall',
-            {'train_recall': train_recall, 'val_recall': val_recall},
-            epoch
-        )
-        writer.add_scalars(
-            'precision',
-            {
-                'train_precision': train_precision,
-                'val_precision': val_precision
-            },
-            epoch
-        )
+        writer.add_scalar('loss', train_loss, epoch)
+        writer.add_scalar('recall', train_recall, epoch)
+        writer.add_scalar('precision', train_precision, epoch)
 
         # 5epochごとにモデルを保存
         if (epoch) % 5 == 0:

@@ -3,76 +3,7 @@ from .datahandler import DataHandler as DH
 from tqdm import tqdm
 
 
-class GeoUtils:
-    @staticmethod
-    def zerodata_augmentation(data, x_range=(-175, -64), y_range=(18, 71),
-                              fineness=(20, 20), numdata_sqrt_oneclass=10):
-        labels = set([i for i in range(fineness[0] * fineness[1])])
-
-        # データのないブロックを取得
-        x_min, x_max = sorted(x_range)
-        y_min, y_max = sorted(y_range)
-        xl, yl = (x_max - x_min) / fineness[0], (y_max - y_min) / fineness[1]
-        for item in tqdm(data):
-            x, y = item['locate']
-            xlabel = (x - x_min) // xl
-            ylabel = (y - y_min) // yl
-
-            labels.discard(int(ylabel * fineness[0] + xlabel))
-
-        # 全てのクラスに対し負例となるデータの追加
-        for zerolabel in tqdm(labels):
-            ylabel, xlabel = divmod(zerolabel, fineness[0])
-            xgrid = np.linspace(
-                x_min + xl * xlabel, x_min + xl * (xlabel + 1),
-                numdata_sqrt_oneclass, endpoint=False
-            )
-            ygrid = np.linspace(
-                y_min + yl * ylabel, y_min + yl * (ylabel + 1),
-                numdata_sqrt_oneclass, endpoint=False
-            )
-
-            for x in xgrid:
-                for y in ygrid:
-                    data.append({'labels': [], 'locate': [x, y]})
-
-        return data
-
-    @staticmethod
-    def base_dataset(x_range=(-175, -64), y_range=(18, 71), fineness=(20, 20),
-                     numdata_sqrt_oneclass=32):
-        print('preparing dataset for basenet ...')
-        x_min, x_max = sorted(x_range)
-        y_min, y_max = sorted(y_range)
-        xgrid = np.arange(
-            x_min, x_max,
-            (x_max - x_min) / (fineness[0] * numdata_sqrt_oneclass)
-        )
-        ygrid = np.arange(
-            y_min, y_max,
-            (y_max - y_min) / (fineness[1] * numdata_sqrt_oneclass)
-        )
-        # x = np.linspace(x_min, x_max, fineness[0] * numdata_sqrt_oneclass)
-        # y = np.linspace(y_min, y_max, fineness[1] * numdata_sqrt_oneclass)
-
-        locate_tags_dictlist = []
-        temp = []
-        xl, yl = (x_max - x_min) / fineness[0], (y_max - y_min) / fineness[1]
-        for x in tqdm(xgrid):
-            xlabel = (x - x_min) // xl
-            for y in ygrid:
-                ylabel = (y - y_min) // yl
-
-                locate_tags_dictlist.append({
-                    'labels': [int(ylabel * fineness[0] + xlabel)],
-                    'locate': [x, y]
-                })
-                temp.append([x, y])
-
-        mean, std = np.mean(temp, axis=0), np.std(temp, axis=0)
-
-        return locate_tags_dictlist, (mean, std)
-
+class VisUtils:
     @staticmethod
     def rep_dataset(category, phase='train', base_path='../datas/bases/'):
         print('preparing dataset: {0} ...'.format(phase))

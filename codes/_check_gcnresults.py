@@ -289,7 +289,6 @@ def get_training_images(threshold=0.1, phase='train'):
     import pickle
     import shutil
     from mmm import DataHandler as DH
-    from mmm import makepath
     from tqdm import tqdm
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
@@ -347,7 +346,7 @@ def get_training_images(threshold=0.1, phase='train'):
 
             path_fin = category[idx] + '/zero' if label[0][idx] == 0 \
                 else category[idx] + '/one'
-            makepath(outputs_path + path_fin)
+            os.makedirs(outputs_path + path_fin, exist_ok=True)
             shutil.copy(
                 path_top + 'inputs/images/' + phase + '/' + filename[0],
                 outputs_path + path_fin
@@ -937,6 +936,191 @@ def ite_hist_change(phase='train', width=0.16, saved=True):
         plt.savefig('../datas/gcn/outputs/check/ite/{0}.png'.format(phase))
 
 
+def prmu_diff_hist(phase='train', barnum=3, saved=True):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+    from mmm import DataHandler as DH
+
+    plt.rcParams['font.family'] = 'IPAexGothic'
+    # -------------------------------------------------------------------------
+    dpath = '../datas/gcn/outputs/check/ite'
+    data = DH.loadNpy('epoch00to20_thr04_{0}.npy'.format(phase), dpath)
+    diff = [[] for _ in range(barnum)]
+    ml = 0
+    for item in data:
+        idx = len(item[1]) - 1
+        ml = max(idx, ml)
+        idx = min(idx, barnum - 1)
+        diff[idx].append(item[11] - item[3])
+
+    diff = [item for item in diff if item]
+    barnum = len(diff)
+    bar_heights = np.zeros((barnum, 8))
+    thresholds = np.arange(-1.0, 1.1, 0.25)
+
+    for idx, item in enumerate(diff):
+        bin_heights = np.histogram(item, bins=8, range=(-1.0, 1.0))[0]
+        bar_heights[idx] = bin_heights / sum(bin_heights)
+
+    # -------------------------------------------------------------------------
+    x = np.arange(len(thresholds) - 1)
+    width = 0.8 / barnum
+    fig, ax = plt.subplots()
+
+    ax.bar(x + 0.5, np.ones(8), 0.8, alpha=0.15)
+    for idx, bh in enumerate(bar_heights[:-1]):
+        ax.bar(
+            x + 0.1 + width * (idx + 0.5),
+            bh, width,
+            label='{0}個'.format(idx + 1)
+        )
+
+    ll = '{0}個'.format(barnum)
+    ll = ll + '以上' if ml + 1 > barnum else ll
+    ax.bar(x + 0.1 + width * (barnum - 0.5), bar_heights[-1], width, label=ll)
+
+    # -------------------------------------------------------------------------
+    x = np.arange(len(thresholds))
+    labels = ['{0}'.format(int(item * 100)) for item in thresholds]
+
+    # fig_title = '学習用データセット' if phase == 'train' else '評価用データセット'
+    # fig_title = '認識対象概念が持つ視覚代表概念の数の違いによる学習前後での再現率の変化量'
+    # ax.set_title(fig_title)
+    ax.set_xlabel('学習前後での再現率の変化量(%)')
+    ax.set_ylabel('割合')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+    ax.set_yticklabels(['0 %', '25 %', '50 %', '75 %', '100 %'])
+    ax.set_aspect(3)
+    ax.legend(title='視覚代表概念の数')
+
+    if saved:
+        directory = '../datas/gcn/outputs/check/prmu'
+        os.makedirs(directory, exist_ok=True)
+        plt.savefig(
+            '{0}/{1}.png'.format(directory, phase),
+            bbox_inches="tight",
+            pad_inches=0.1
+        )
+
+    plt.show()
+
+
+def prmu_hist_change(phase='train', barnum=3, binnum=5, saved=True):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+    from mmm import DataHandler as DH
+
+    plt.rcParams['font.family'] = 'IPAexGothic'
+    # -------------------------------------------------------------------------
+    dpath = '../datas/gcn/outputs/check/ite'
+    data = DH.loadNpy('epoch00to20_thr04_{0}.npy'.format(phase), dpath)
+    before = [[] for _ in range(barnum)]
+    after = [[] for _ in range(barnum)]
+    ml = 0
+    for item in data:
+        idx = len(item[1]) - 1
+        ml = max(idx, ml)
+        idx = min(idx, barnum - 1)
+        before[idx].append(item[3])
+        after[idx].append(item[11])
+
+    before = [item for item in before if item]
+    after = [item for item in after if item]
+    barnum = len(before)
+    before_heights = np.zeros((barnum, binnum))
+    after_heights = np.zeros((barnum, binnum))
+    thresholds = np.linspace(0.0, 1.0, binnum + 1)
+
+    for idx, item in enumerate(before):
+        bin_heights = np.histogram(item, bins=binnum, range=(0.0, 1.0))[0]
+        before_heights[idx] = bin_heights / sum(bin_heights)
+
+    for idx, item in enumerate(after):
+        bin_heights = np.histogram(item, bins=binnum, range=(0.0, 1.0))[0]
+        after_heights[idx] = bin_heights / sum(bin_heights)
+
+    # -------------------------------------------------------------------------
+    x = np.arange(binnum)
+    width = 0.8 / barnum
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2, 1, 1)
+    ax2 = fig.add_subplot(2, 1, 2)
+
+    # -------------------------------------------------------------------------
+    ax1.bar(x + 0.5, np.ones(binnum), 0.8, alpha=0.15)
+    for idx, bh in enumerate(before_heights[:-1]):
+        ax1.bar(
+            x + 0.1 + width * (idx + 0.5),
+            bh, width,
+            label='{0}個'.format(idx + 1)
+        )
+
+    ll = '{0}個'.format(barnum)
+    ll = ll + '以上' if ml + 1 > barnum else ll
+    ax1.bar(
+        x + 0.1 + width * (barnum - 0.5),
+        before_heights[-1], width,
+        label=ll
+    )
+
+    labels = ['{0}'.format(int(item * 100)) for item in thresholds]
+
+    # ax.set_title(fig_title)
+    # ax1.set_xlabel('学習前の再現率(%)')
+    # ax1.set_ylabel('割合')
+    ax1.set_xticks(np.arange(binnum + 1))
+    ax1.set_xticklabels(labels)
+    ax1.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+    ax1.set_yticklabels(['0 %', '25 %', '50 %', '75 %', '100 %'])
+    ax1.set_aspect(1.5)
+    ax1.legend(title='視覚代表概念の数')
+
+    # -------------------------------------------------------------------------
+    ax2.bar(x + 0.5, np.ones(binnum), 0.8, alpha=0.15)
+    for idx, bh in enumerate(after_heights[:-1]):
+        ax2.bar(
+            x + 0.1 + width * (idx + 0.5),
+            bh, width,
+            label='{0}個'.format(idx + 1)
+        )
+
+    ll = '{0}個'.format(barnum)
+    ll = ll + '以上' if ml + 1 > barnum else ll
+    ax2.bar(
+        x + 0.1 + width * (barnum - 0.5),
+        after_heights[-1], width,
+        label=ll
+    )
+
+    labels = ['{0}'.format(int(item * 100)) for item in thresholds]
+
+    # ax.set_title(fig_title)
+    ax2.set_xlabel('学習前後での再現率(%)\n(上：学習前, 下：学習後)')
+    # ax2.set_ylabel('割合')
+    ax2.set_xticks(np.arange(binnum + 1))
+    ax2.set_xticklabels(labels)
+    ax2.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+    ax2.set_yticklabels(['0 %', '25 %', '50 %', '75 %', '100 %'])
+    ax2.set_aspect(1.5)
+    # ax2.legend(title='視覚代表概念の数', loc='upper left')
+
+    # -------------------------------------------------------------------------
+    if saved:
+        directory = '../datas/gcn/outputs/check/prmu'
+        os.makedirs(directory, exist_ok=True)
+        fig.savefig(
+            '{0}/{1}.png'.format(directory, phase),
+            bbox_inches="tight",
+            pad_inches=0.1
+        )
+
+    fig.show()
+
+
 if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # r = get_predicts()
@@ -944,11 +1128,12 @@ if __name__ == "__main__":
     # class_precision(epoch=0)
     # score_unknown(epoch=0)
     # confusion_all_matrix(threshold=0.4, epoch=0, saved=True)
-    confusion_all_matrix(threshold=0.4, epoch=20, saved=True)
+    # confusion_all_matrix(threshold=0.4, epoch=20, saved=True)
     # r = check_lowrecall()
     # check_locate()
     # compare_pr(threshold=0.4, saved=True)
     # ite_hist_change('train')
     # ite_hist_change('validate')
+    prmu_hist_change()
     # -------------------------------------------------------------------------
     print('finish.')

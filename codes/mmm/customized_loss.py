@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.overrides import has_torch_function, handle_torch_function
 
-
 logsigmoid = torch._C._nn.log_sigmoid
 
 
@@ -74,4 +73,21 @@ class CustomizedMultiLabelSoftMarginLoss(_WeightedLoss):
     def forward(self, input, target, weight=None):
         return _multilabel_soft_margin_loss(
             input, target, weight=weight, reduction=self.reduction
+        )
+
+
+class CustomizedCrossEntropyLoss(_WeightedLoss):
+    __constants__ = ['ignore_index', 'reduction']
+    ignore_index: int
+
+    def __init__(self, weight=None, size_average=None, ignore_index=-100,
+                 reduce=None, reduction='mean'):
+        super(CustomizedCrossEntropyLoss, self).__init__(
+            weight, size_average, reduce, reduction)
+        self.ignore_index = ignore_index
+
+    def forward(self, input, target, weight=None):
+        return nn.functional.cross_entropy(
+            input, torch.where(target)[1],
+            ignore_index=self.ignore_index, reduction=self.reduction
         )

@@ -3,8 +3,7 @@ import os
 import torch
 import torch.optim as optim
 from abc import ABCMeta, abstractmethod
-from .customized_multilabel_soft_margin_loss \
-    import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
+from .customized_loss import CustomizedMultiLabelSoftMarginLoss
 from torch.autograd import Variable
 from tqdm import tqdm
 
@@ -15,7 +14,7 @@ class MyBaseModel(metaclass=ABCMeta):
     このクラスそのものはインスタンス化できない
     '''
     def __init__(self, *, class_num=0,
-                 loss_function=MyLossFunction(),
+                 loss_function=CustomizedMultiLabelSoftMarginLoss(),
                  optimizer=optim.SGD, learningrate=0.01, momentum=0.9,
                  weight_decay=None, fix_mask=None, multigpu=False,
                  backprop_weight=None, network_setting={}):
@@ -136,12 +135,9 @@ class MyBaseModel(metaclass=ABCMeta):
             filenames: トレーニングに用いた画像のファイル名．
             predict, labels: filenameに対応するラベルの予測値と正解ラベル
         '''
-        predict_list, ans_list = [], []
         running_loss, correct, total, pred_total = 0, 0, 0, 0
 
-        filelist = []
         for i, (images, labels, filename) in enumerate(tqdm(dataset)):
-            filelist.append(filename)
             if self._use_gpu:
                 images = Variable(images).cuda()
                 labels = Variable(labels).cuda()
@@ -162,10 +158,6 @@ class MyBaseModel(metaclass=ABCMeta):
             total += labels.data.sum()
             pred_total += predicted.sum()
 
-            # 予想結果と正解を保存
-            predict_list.append(self._predict(outputs))
-            ans_list.append(labels.data.cpu().numpy())
-
             # modeが'train'の時はbackprop
             if mode == 'train':
                 self._optimizer.zero_grad()
@@ -176,7 +168,7 @@ class MyBaseModel(metaclass=ABCMeta):
         recall = correct / total
         precision = 0.0 if pred_total == 0 else correct / pred_total
 
-        return epoch_loss, recall, precision, filelist, predict_list, ans_list
+        return epoch_loss, recall, precision
 
     def train(self, dataset, epoch=None):
         '''
