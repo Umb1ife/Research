@@ -224,13 +224,16 @@ def confusion_all_matrix(epoch=200, saved=True,
         class_num=num_class,
         momentum=0.9,
         fix_mask=mask,
-        multigpu=False,
-        network_setting={'class_num': num_class, 'mean': mean, 'std': std},
+        network_setting={
+            'num_classes': num_class,
+            'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+            'BR_settings': {'fineness': (20, 20)}
+        }
     )
 
     if epoch > 0:
         model.loadmodel('{0:0=3}weight'.format(epoch),
-                        '../datas/geo_rep/outputs/learned_newmodel/')
+                        '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/')
 
     def _update_backprop_weight(labels, fmask):
         '''
@@ -335,7 +338,14 @@ def confusion_all_matrix(epoch=200, saved=True,
 
 
 if __name__ == "__main__":
-    # confusion_all_matrix()
+    # confusion_all_matrix(
+    #     epoch=200,
+    #     outputs_path='../datas/geo_rep/outputs/check/base/'
+    # )
+    # confusion_all_matrix(
+    #     epoch=0,
+    #     outputs_path='../datas/geo_rep/outputs/check/base/'
+    # )
     # visualize_classmap(weight='../datas/geo_rep/outputs/learned_small/010weight.pth')
     # visualize_classmap()
     # plot_map()

@@ -86,7 +86,7 @@ if __name__ == "__main__":
     # category = limited_category(rep_category)
     category = limited_category(
         rep_category,
-        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
+        # lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
     )
     num_class = len(category)
 
@@ -143,11 +143,29 @@ if __name__ == "__main__":
     mask = GU.down_mask(rep_category, category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    bp_weight = DH.loadNpy('backprop_weight', input_path) \
-        if args.load_backprop_weight else None
-    bp_weight = bp_weight if bp_weight is not None \
-        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
-    bp_weight = np.power(bp_weight, 2)
+    # bp_weight = DH.loadNpy('backprop_weight', input_path) \
+    #     if args.load_backprop_weight else None
+    # bp_weight = bp_weight if bp_weight is not None \
+    #     else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    # bp_weight = np.power(bp_weight, 2)
+
+    # -------------------------------------------------------------------------
+    # geo_down_train = GU.zerodata_augmentation(
+    #     geo_down_train,
+    #     numdata_sqrt_oneclass=5
+    # )
+    # train_dataset = DatasetGeotag(**kwargs_DF['train'])
+    # train_loader = torch.utils.data.DataLoader(
+    #     train_dataset,
+    #     shuffle=True,
+    #     batch_size=batchsize,
+    #     num_workers=numwork
+    # )
+
+    # if torch.cuda.is_available():
+    #     train_loader.pin_memory = True
+    #     cudnn.benchmark = True
+    # -------------------------------------------------------------------------
 
     # 入力位置情報の正規化のためのパラメータ読み込み
     mean, std = DH.loadNpy('normalize_params', input_path)
@@ -159,6 +177,8 @@ if __name__ == "__main__":
         'filepaths': {
             'relationship': base_path + 'geo_relationship.pickle',
             'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
+            # 'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
+            # 'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/100weight.pth'
         },
         'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
         'BR_settings': {'fineness': (20, 20)},
@@ -175,7 +195,7 @@ if __name__ == "__main__":
         fix_mask=mask,
         network_setting=gcn_settings,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        backprop_weight=bp_weight
+        # backprop_weight=bp_weight
     )
 
     # -------------------------------------------------------------------------
@@ -194,7 +214,6 @@ if __name__ == "__main__":
     )
 
     # 学習前
-    model.savemodel('000weight.pth', mpath)
     train_loss, train_recall, train_precision = model.validate(train_loader)
     val_loss, val_recall, val_precision = model.validate(val_loader)
     print('epoch: {0}'.format(0))
@@ -208,6 +227,7 @@ if __name__ == "__main__":
     writer.add_scalar('loss', train_loss, 0)
     writer.add_scalar('recall', train_recall, 0)
     writer.add_scalar('precision', train_precision, 0)
+    model.savemodel('000weight.pth', mpath)
     print('------------------------------------------------------------------')
 
     # 学習

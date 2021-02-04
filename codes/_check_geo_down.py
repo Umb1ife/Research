@@ -5,11 +5,12 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     from mmm import DataHandler as DH
     from mmm import GeoUtils as GU
     from geodown_training import limited_category
+    from tqdm import tqdm
 
     input_path = '../datas/geo_down/inputs/'
     # datas = DH.loadPickle('geo_down_train.pickle', input_path)
     rep_category = DH.loadJson('upper_category.json', input_path)
-    mean, std = DH.loadNpy('normalize_params.npy', input_path)
+    # mean, std = DH.loadNpy('normalize_params.npy', input_path)
     # -------------------------------------------------------------------------
     # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
     category = limited_category(rep_category)
@@ -56,7 +57,7 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
     ]
 
-    for item in datas:
+    for item in tqdm(datas):
         labels, locate = item['labels'], item['locate']
         locate = [locate[1], locate[0]]
         radius = 150
@@ -87,21 +88,26 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
     import folium
     import numpy as np
     import torch
-    from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
-    from mmm import GeotagGCN
+    # from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
     from geodown_training import limited_category
+    from mmm import GeotagGCN
+    from tqdm import tqdm
 
     # -------------------------------------------------------------------------
     # load classifier
     from mmm import DataHandler as DH
-    category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
-    mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
+    rep_category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
+    # mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
     # -------------------------------------------------------------------------
 
-    rep_category = {'lasvegas': 0, 'newyorkcity': 1}
+    # rep_category = {'lasvegas': 0, 'newyorkcity': 1}
     # category = limited_category(rep_category)
-    category = {'bellagio': 0, 'grandcentralstation': 1, 'lasvegas': 2,
-                'newyorkcity': 3}
+    # category = {'bellagio': 0, 'grandcentralstation': 1, 'lasvegas': 2,
+    #             'newyorkcity': 3}
+    category = limited_category(
+        rep_category,
+        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
+    )
     num_class = len(category)
 
     gcn_settings = {
@@ -109,18 +115,16 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
         'rep_category': rep_category,
         'filepaths': {
             'relationship': '../datas/bases/geo_relationship.pickle',
-            'learned_weight': '../datas/geo_rep/outputs/learned_small/010weight.pth'
-            # 'learned_weight': input_path + '200weight.pth'
+            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
+            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
         },
-        'feature_dimension': 30,
-        'simplegeonet_settings': {
-            'class_num': len(rep_category), 'mean': mean, 'std': std
-        }
+        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+        'BR_settings': {'fineness': (20, 20)},
     }
 
     model = GeotagGCN(
         class_num=num_class,
-        loss_function=MyLossFunction(reduction='none'),
+        momentum=0.9,
         weight_decay=1e-4,
         network_setting=gcn_settings,
     )
@@ -141,6 +145,7 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
     )
 
     # make colors list
+    category = list(category.keys())
     limited = category[:] if limited is None else limited
     limited = set(limited) & set(category)
     convert_idx = {}
@@ -160,8 +165,7 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
 
     # -------------------------------------------------------------------------
     # plot
-    category = list(category.keys())
-    for lat in lats:
+    for lat in tqdm(lats):
         for lng in lngs:
             # labels = model.predict(torch.Tensor([30, -80]), labeling=True)
             labels = model.predict(torch.Tensor([lng, lat]), labeling=True)
@@ -179,28 +183,7 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
                     color=RGB_tuples[convert_idx[lbl]],
                     fill=False
                 ).add_to(_map)
-                radius *= 2
-
-    # datas = DH.loadPickle('geo_down_train.pickle', '../datas/geo_down/inputs/')
-    # for item in datas:
-    #     loc = item['locate']
-    #     # labels = model.predict(torch.Tensor([[lng, lat]]), labeling=True)
-    #     labels = model.predict(torch.Tensor([loc]), labeling=False)
-    #     labels = np.where(labels[0] > 0)[0]
-    #     radius = 150
-    #     for lbl in labels:
-    #         popup = category[lbl]
-    #         if popup not in limited:
-    #             continue
-
-    #         folium.Circle(
-    #             radius=radius,
-    #             location=[loc[1], loc[0]],
-    #             popup=popup,
-    #             color=RGB_tuples[convert_idx[lbl]],
-    #             fill=False
-    #         ).add_to(_map)
-    #         radius *= 2
+                radius += radius
 
     return _map
 
@@ -749,19 +732,19 @@ def confusion_all_matrix(epoch=20, saved=True,
     # category = limited_category(rep_category)
     category = limited_category(
         rep_category,
-        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
+        # lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
     )
     num_class = len(category)
 
     geo_down_train = GU.down_dataset(
         rep_category, category, 'train',
-        # base_path=base_path
-        base_path=input_path
+        base_path=base_path
+        # base_path=input_path
     )
     geo_down_validate = GU.down_dataset(
         rep_category, category, 'validate',
-        # base_path=base_path
-        base_path=input_path
+        base_path=base_path
+        # base_path=input_path
     )
 
     kwargs_DF = {
@@ -784,24 +767,44 @@ def confusion_all_matrix(epoch=20, saved=True,
     mask = GU.down_mask(rep_category, category, saved=False)
 
     # 入力位置情報の正規化のためのパラメータ読み込み
-    mean, std = DH.loadNpy('normalize_params', input_path)
+    # mean, std = DH.loadNpy('normalize_params', input_path)
 
     # 学習で用いるデータの設定や読み込み先
+    # gcn_settings = {
+    #     'category': category,
+    #     'rep_category': rep_category,
+    #     'filepaths': {
+    #         'relationship': base_path + 'geo_relationship.pickle',
+    #         # 'learned_weight': input_path + '020weight.pth'
+    #         'learned_weight': input_path + '200weight.pth'
+    #     },
+    #     'feature_dimension': 30,
+    #     'simplegeonet_settings': {
+    #         'class_num': len(rep_category), 'mean': mean, 'std': std
+    #     }
+    # }
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
         'filepaths': {
-            'relationship': base_path + 'geo_relationship.pickle',
-            # 'learned_weight': input_path + '020weight.pth'
-            'learned_weight': input_path + '200weight.pth'
+            'relationship': '../datas/bases/geo_relationship.pickle',
+            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
+            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
         },
-        'feature_dimension': 30,
-        'simplegeonet_settings': {
-            'class_num': len(rep_category), 'mean': mean, 'std': std
-        }
+        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+        'BR_settings': {'fineness': (20, 20)},
     }
 
     # modelの設定
+    # model = GeotagGCN(
+    #     class_num=num_class,
+    #     learningrate=0.1,
+    #     momentum=0.9,
+    #     weight_decay=1e-4,
+    #     fix_mask=mask,
+    #     network_setting=gcn_settings,
+    #     multigpu=False,
+    # )
     model = GeotagGCN(
         class_num=num_class,
         learningrate=0.1,
@@ -809,7 +812,6 @@ def confusion_all_matrix(epoch=20, saved=True,
         weight_decay=1e-4,
         fix_mask=mask,
         network_setting=gcn_settings,
-        multigpu=False,
     )
     if epoch > 0:
         model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
@@ -948,16 +950,16 @@ def test():
 
 
 if __name__ == "__main__":
-    # confusion_all_matrix(
-    #     epoch=20,
-    #     weight_path='../datas/geo_down/outputs/learned_refined_wide_bp2/',
-    #     outputs_path='../datas/geo_down/outputs/check/learned_refined_bp2/'
-    # )
-    # confusion_all_matrix(
-    #     epoch=0,
-    #     weight_path='../datas/geo_down/outputs/learned_refined_wide_bp2/',
-    #     outputs_path='../datas/geo_down/outputs/check/learned_refined_bp2/'
-    # )
+    confusion_all_matrix(
+        epoch=20,
+        weight_path='../datas/geo_down/outputs/learned_base_bp2/',
+        outputs_path='../datas/geo_down/outputs/check/learned_base_bp2/'
+    )
+    confusion_all_matrix(
+        epoch=0,
+        weight_path='../datas/geo_down/outputs/learned_base_bp2/',
+        outputs_path='../datas/geo_down/outputs/check/learned_base_bp2/'
+    )
     # visualize_classmap()
     # plot_map()
     # visualize_training_data('bellagio')

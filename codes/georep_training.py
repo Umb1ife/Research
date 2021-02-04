@@ -150,7 +150,6 @@ if __name__ == "__main__":
     )
 
     # 指定epoch数学習
-    model.savemodel('000weight.pth', mpath)
     train_loss, train_recall, train_precision = model.validate(train_loader)
     val_loss, val_recall, val_precision = model.validate(val_loader)
     print('epoch: {0}'.format(0))
@@ -164,6 +163,7 @@ if __name__ == "__main__":
     writer.add_scalar('loss', train_loss, 0)
     writer.add_scalar('recall', train_recall, 0)
     writer.add_scalar('precision', train_precision, 0)
+    model.savemodel('000weight.pth', mpath)
     print('------------------------------------------------------------------')
 
     # 学習
