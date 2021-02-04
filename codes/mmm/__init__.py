@@ -11,3 +11,4 @@ from .imbalanced_data_sampler import ImbalancedDataSampler
 from .meanshift_refiner import MeanShiftRefiner
 from .mmfunction import benchmark, loading_animation
 from .prepare import PrepareVis
+from .vis_utils import VisUtils
