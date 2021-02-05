@@ -82,12 +82,7 @@ if __name__ == "__main__":
 
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
-    # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
     # category = limited_category(rep_category)
-    category = limited_category(
-        rep_category,
-        # lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    )
     num_class = len(category)
 
     # データの作成
@@ -143,11 +138,11 @@ if __name__ == "__main__":
     mask = GU.down_mask(rep_category, category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    # bp_weight = DH.loadNpy('backprop_weight', input_path) \
-    #     if args.load_backprop_weight else None
-    # bp_weight = bp_weight if bp_weight is not None \
-    #     else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
-    # bp_weight = np.power(bp_weight, 2)
+    bp_weight = DH.loadNpy('backprop_weight', input_path) \
+        if args.load_backprop_weight else None
+    bp_weight = bp_weight if bp_weight is not None \
+        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    bp_weight = np.power(bp_weight, 2)
 
     # -------------------------------------------------------------------------
     # geo_down_train = GU.zerodata_augmentation(
@@ -176,9 +171,8 @@ if __name__ == "__main__":
         'rep_category': rep_category,
         'filepaths': {
             'relationship': base_path + 'geo_relationship.pickle',
-            'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            # 'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-            # 'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/100weight.pth'
+            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
+            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
         },
         'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
         'BR_settings': {'fineness': (20, 20)},
@@ -195,7 +189,7 @@ if __name__ == "__main__":
         fix_mask=mask,
         network_setting=gcn_settings,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        # backprop_weight=bp_weight
+        backprop_weight=bp_weight
     )
 
     # -------------------------------------------------------------------------

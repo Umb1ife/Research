@@ -5,14 +5,13 @@ from tqdm import tqdm
 
 class VisUtils:
     @staticmethod
-    def annotations(category, stage='rep', phase='train',
-                    base_path='../datas/bases/'):
+    def rep_anno(category, phase='train', base_path='../datas/bases/'):
         print('preparing dataset: {0} ...'.format(phase))
-        rtf = DH.loadJson('{0}_tag2file'.format(stage), base_path)
-        rtf = rtf[phase]
+        t2f = DH.loadJson('rep_tag2file', base_path)
+        t2f = t2f[phase]
         photo2tag = {}
         for cat in category:
-            for pf in rtf[cat]['filename']:
+            for pf in t2f[cat]['filename']:
                 if pf in photo2tag:
                     photo2tag[pf].append(cat)
                 else:
@@ -47,6 +46,28 @@ class VisUtils:
             )
 
         return mask
+
+    @staticmethod
+    def down_anno(category, rep_category, phase='train',
+                  base_path='../datas/bases/'):
+        print('preparing dataset: {0} ...'.format(phase))
+        t2f = DH.loadJson('down_tag2file', base_path)
+        t2f = t2f[phase]
+        down = set(category) - set(rep_category)
+        photo2tag = {}
+        for cat in down:
+            for pf in t2f[cat]['filename']:
+                if pf in photo2tag:
+                    photo2tag[pf].append(cat)
+                else:
+                    photo2tag[pf] = [cat]
+
+        anno = [
+            {'file_name': key, 'labels': [category[tag] for tag in val]}
+            for key, val in tqdm(photo2tag.items())
+        ]
+
+        return anno
 
     @staticmethod
     def down_mask(rep_category, local_category, sim_thr=0.4,

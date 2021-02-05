@@ -64,44 +64,58 @@ if __name__ == "__main__":
     image_normalization_mean = [0.485, 0.456, 0.406]
     image_normalization_std = [0.229, 0.224, 0.225]
 
-    vis_rep_train = VU.annotations(category, stage='rep', phase='train')
-    vis_rep_validate = VU.annotations(category, stage='rep', phase='validate')
-    DH.saveJson(vis_rep_train, input_path)
-    DH.saveJson(vis_rep_validate, input_path)
+    vis_rep_train = VU.rep_anno(category, phase='train')
+    vis_rep_validate = VU.rep_anno(category, phase='validate')
+    DH.saveJson(vis_rep_train, 'train_anno', input_path)
+    DH.saveJson(vis_rep_validate, 'validate_anno', input_path)
+    transform = transforms.Compose(
+        [
+            transforms.RandomResizedCrop(
+                224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
+            ),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ]
+    )
 
     kwargs_DF = {
         'train': {
             'category': category,
             'annotations': vis_rep_train,
-            'transform': transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(
-                        224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
-                    ),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=image_normalization_mean,
-                        std=image_normalization_std
-                    )
-                ]
-            ),
+            'transform': transform,
+            # 'transform': transforms.Compose(
+            #     [
+            #         transforms.RandomResizedCrop(
+            #             224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
+            #         ),
+            #         transforms.ToTensor(),
+            #         transforms.Normalize(
+            #             mean=image_normalization_mean,
+            #             std=image_normalization_std
+            #         )
+            #     ]
+            # ),
             'image_path': input_path + 'images/train/'
         },
         'validate': {
             'category': category,
             'annotations': vis_rep_validate,
-            'transform': transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(
-                        224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
-                    ),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=image_normalization_mean,
-                        std=image_normalization_std
-                    )
-                ]
-            ),
+            'transform': transform,
+            # 'transform': transforms.Compose(
+            #     [
+            #         transforms.RandomResizedCrop(
+            #             224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
+            #         ),
+            #         transforms.ToTensor(),
+            #         transforms.Normalize(
+            #             mean=image_normalization_mean,
+            #             std=image_normalization_std
+            #         )
+            #     ]
+            # ),
             'image_path': input_path + 'images/validate/'
         }
     }
@@ -131,10 +145,11 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    mask = DH.loadPickle(
-        '{0:0=2}'.format(int(args.sim_threshold * 10)),
-        input_path + 'comb_mask/'
-    )
+    # mask = DH.loadPickle(
+    #     '{0:0=2}'.format(int(args.sim_threshold * 10)),
+    #     input_path + 'comb_mask/'
+    # )
+    mask = VU.rep_mask(category)
 
     # modelの設定
     model = FinetuneModel(
