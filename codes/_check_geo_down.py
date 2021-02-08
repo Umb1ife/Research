@@ -1,19 +1,21 @@
-def plot_map(phase='train', refined=False, limited=None, sort_std=False):
+def plot_map(phase='train', refined=False, limited=None,
+             saved=False, sort_std=False):
     import colorsys
     import folium
     import numpy as np
     from mmm import DataHandler as DH
     from mmm import GeoUtils as GU
-    from geodown_training import limited_category
+    # from geodown_training import limited_category
     from tqdm import tqdm
 
     input_path = '../datas/geo_down/inputs/'
     # datas = DH.loadPickle('geo_down_train.pickle', input_path)
     rep_category = DH.loadJson('upper_category.json', input_path)
+    category = DH.loadJson('category.json', input_path)
     # mean, std = DH.loadNpy('normalize_params.npy', input_path)
     # -------------------------------------------------------------------------
     # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    category = limited_category(rep_category)
+    # category = limited_category(rep_category)
     # class_num = len(category)
     datas = GU.down_dataset(
         rep_category, category, phase,
@@ -60,7 +62,8 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     for item in tqdm(datas):
         labels, locate = item['labels'], item['locate']
         locate = [locate[1], locate[0]]
-        radius = 150
+        radius = 10000
+        # radius = 150
         for lbl in labels:
             popup = category[lbl]
             if popup not in limited:
@@ -73,10 +76,17 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
                 radius=radius,
                 location=locate,
                 popup=popup,
-                color=RGB_tuples[convert_idx[lbl]],
-                fill=False,
+                # color=RGB_tuples[convert_idx[lbl]],
+                color='red',
+                fill=True,
+                fill_opacity=1
             ).add_to(_map)
-            radius *= 2
+            # radius += radius
+
+    if saved:
+        _map.save(
+            '../datas/geo_down/outputs/check/geodown_{0}.html'.format(phase)
+        )
 
     return _map
 
@@ -181,7 +191,9 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
                     location=[lat, lng],
                     popup=popup,
                     color=RGB_tuples[convert_idx[lbl]],
-                    fill=False
+                    opacity=0.5,
+                    fill=False,
+                    # fill_opacity=1,
                 ).add_to(_map)
                 radius += radius
 
@@ -712,7 +724,7 @@ def confusion_all_matrix(epoch=20, saved=True,
     import numpy as np
     import os
     import torch
-    from geodown_training import limited_category
+    # from geodown_training import limited_category
     from mmm import DataHandler as DH
     from mmm import DatasetGeotag
     from mmm import GeotagGCN
@@ -730,10 +742,10 @@ def confusion_all_matrix(epoch=20, saved=True,
     category = DH.loadJson('category.json', input_path)
     # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
     # category = limited_category(rep_category)
-    category = limited_category(
-        rep_category,
-        # lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    )
+    # category = limited_category(
+    #     rep_category,
+    #     # lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
+    # )
     num_class = len(category)
 
     geo_down_train = GU.down_dataset(
@@ -950,16 +962,16 @@ def test():
 
 
 if __name__ == "__main__":
-    confusion_all_matrix(
-        epoch=20,
-        weight_path='../datas/geo_down/outputs/learned_base_bp2/',
-        outputs_path='../datas/geo_down/outputs/check/learned_base_bp2/'
-    )
-    confusion_all_matrix(
-        epoch=0,
-        weight_path='../datas/geo_down/outputs/learned_base_bp2/',
-        outputs_path='../datas/geo_down/outputs/check/learned_base_bp2/'
-    )
+    # confusion_all_matrix(
+    #     epoch=20,
+    #     weight_path='../datas/geo_down/outputs/learned_rep35_bp2/',
+    #     outputs_path='../datas/geo_down/outputs/check/learned_rep35_bp2/'
+    # )
+    # confusion_all_matrix(
+    #     epoch=0,
+    #     weight_path='../datas/geo_down/outputs/learned_rep35_bp2/',
+    #     outputs_path='../datas/geo_down/outputs/check/learned_rep35_bp2/'
+    # )
     # visualize_classmap()
     # plot_map()
     # visualize_training_data('bellagio')

@@ -64,12 +64,6 @@ if __name__ == "__main__":
     geo_rep_validate, _ = GU.rep_dataset(category, 'validate')
     DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
     DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
-    # DH.saveNpy((mean, std), 'normalize_params', input_path)
-    # zerolength = len(geo_rep_train)
-    geo_rep_train = GU.zerodata_augmentation(
-        geo_rep_train, numdata_sqrt_oneclass=10
-    )
-    # zerolength = len(geo_rep_train) - zerolength
 
     kwargs_DF = {
         'train': {
@@ -110,10 +104,29 @@ if __name__ == "__main__":
     mask = GU.rep_mask(category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    # bp_weight = DH.loadNpy('backprop_weight', input_path) \
-    #     if args.load_backprop_weight else None
-    # bp_weight = bp_weight if bp_weight is not None \
-    #     else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    bp_weight = DH.loadNpy('backprop_weight', input_path) \
+        if args.load_backprop_weight else None
+    bp_weight = bp_weight if bp_weight is not None \
+        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    import numpy as np
+    bp_weight = np.power(bp_weight, 2)
+
+    # -------------------------------------------------------------------------
+    geo_rep_train = GU.zerodata_augmentation(
+        geo_rep_train, numdata_sqrt_oneclass=10
+    )
+    train_dataset = DatasetGeotag(**kwargs_DF['train'])
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        shuffle=True,
+        batch_size=batchsize,
+        num_workers=numwork
+    )
+
+    if torch.cuda.is_available():
+        train_loader.pin_memory = True
+        cudnn.benchmark = True
+    # -------------------------------------------------------------------------
 
     model = RepGeoClassifier(
         class_num=num_class,

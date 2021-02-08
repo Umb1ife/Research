@@ -1,3 +1,4 @@
+import numpy as np
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -6,6 +7,7 @@ import torch.optim as optim
 from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
 from mmm import DataHandler as DH
 from mmm import DatasetFlickr
+from mmm import VisUtils as VU
 from mmm.mymodel import MyBaseModel
 from torchvision import models
 from torchvision import transforms
@@ -41,10 +43,10 @@ if __name__ == "__main__":
     batch_size = 16
     device_ids = '0, 1, 2, 3'
     epochs = 200
-    learning_rate = 0.1
-    sim_threshold = 0.4
+    learning_rate = 1
+    # sim_threshold = 0.4
     workers = 4
-    input_path = '../datas/gcn/inputs/'
+    input_path = '../datas/vis_down/inputs/'
 
     # パラメータや使用するGPUあたりの設定
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
@@ -54,45 +56,35 @@ if __name__ == "__main__":
     print('Number of GPUs: {}'.format(len(device_ids.split(','))))
     numwork = workers
 
-    image_normalization_mean = [0.485, 0.456, 0.406]
-    image_normalization_std = [0.229, 0.224, 0.225]
+    category = DH.loadJson('category.json', input_path)
+    rep_category = DH.loadJson('upper_category.json', input_path)
+
+    vis_down_train = VU.down_anno(category, rep_category, 'train')
+    vis_down_validate = VU.down_anno(category, rep_category, 'validate')
+    transform = transforms.Compose(
+        [
+            transforms.RandomResizedCrop(
+                224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
+            ),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]
+            )
+        ]
+    )
+
     kwargs_DF = {
         'train': {
-            'filenames': {
-                'Annotation': input_path + 'train_anno.json',
-                'Category_to_Index': input_path + 'category.json'
-            },
-            'transform': transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(
-                        224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
-                    ),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=image_normalization_mean,
-                        std=image_normalization_std
-                    )
-                ]
-            ),
+            'category': category,
+            'annotations': vis_down_train,
+            'transform': transform,
             'image_path': input_path + 'images/train/'
         },
         'validate': {
-            'filenames': {
-                'Annotation': input_path + 'validate_anno.json',
-                'Category_to_Index': input_path + 'category.json'
-            },
-            'transform': transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(
-                        224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
-                    ),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=image_normalization_mean,
-                        std=image_normalization_std
-                    )
-                ]
-            ),
+            'category': category,
+            'annotations': vis_down_validate,
+            'transform': transform,
             'image_path': input_path + 'images/validate/'
         }
     }
@@ -120,18 +112,13 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    mask = DH.loadPickle(
-        '{0:0=2}'.format(int(sim_threshold * 10)),
-        input_path + 'comb_mask/'
-    )
+    mask = DH.loadPickle('04.pickle', input_path)
 
     # 誤差伝播の重みの読み込み
-    bp_weight = DH.loadNpy(
-        '{0:0=2}'.format(int(sim_threshold * 10)),
-        input_path + 'backprop_weight/'
-    )
+    bp_weight = DH.loadNpy('backprop_weight.npy', input_path)
+    bp_weight = np.power(bp_weight, 2)
 
-    # 何も工夫なしにfine-tuning、マスク有り、マスク＋weight有りで試す？
+    # マスク有り、マスク＋weight有りで試す？
     model = PreviousMethod(
         class_num=num_class,
         loss_function=MyLossFunction(),
@@ -145,7 +132,8 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 学習
     # -------------------------------------------------------------------------
-    writer = SummaryWriter(log_dir='../datas/comparison/mask_and_bp/')
+    mpath = '../datas/comparison/mask_bp/learned'
+    writer = SummaryWriter(log_dir='../datas/comparison/mask_bp/log/')
 
     train_loss, train_recall, train_precision = model.validate(train_loader)
     val_loss, val_recall, val_precision = model.validate(val_loader)
@@ -159,6 +147,7 @@ if __name__ == "__main__":
     writer.add_scalar('loss', train_loss, 0)
     writer.add_scalar('recall', train_recall, 0)
     writer.add_scalar('precision', train_precision, 0)
+    model.savemodel('000weight.pth', mpath)
     print('------------------------------------------------------------------')
 
     for epoch in range(1, epochs + 1):
@@ -176,5 +165,7 @@ if __name__ == "__main__":
         writer.add_scalar('loss', train_loss, epoch)
         writer.add_scalar('recall', train_recall, epoch)
         writer.add_scalar('precision', train_precision, epoch)
+
+        model.savemodel('{0:0=3}weight'.format(epoch), mpath)
 
     print('finish.')

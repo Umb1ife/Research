@@ -171,8 +171,9 @@ if __name__ == "__main__":
         'rep_category': rep_category,
         'filepaths': {
             'relationship': base_path + 'geo_relationship.pickle',
+            'learned_weight': '../datas/geo_down/inputs/rep_weight.pth'
             # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
+            # 'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
         },
         'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
         'BR_settings': {'fineness': (20, 20)},

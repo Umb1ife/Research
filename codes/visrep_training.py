@@ -86,36 +86,12 @@ if __name__ == "__main__":
             'category': category,
             'annotations': vis_rep_train,
             'transform': transform,
-            # 'transform': transforms.Compose(
-            #     [
-            #         transforms.RandomResizedCrop(
-            #             224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
-            #         ),
-            #         transforms.ToTensor(),
-            #         transforms.Normalize(
-            #             mean=image_normalization_mean,
-            #             std=image_normalization_std
-            #         )
-            #     ]
-            # ),
             'image_path': input_path + 'images/train/'
         },
         'validate': {
             'category': category,
             'annotations': vis_rep_validate,
             'transform': transform,
-            # 'transform': transforms.Compose(
-            #     [
-            #         transforms.RandomResizedCrop(
-            #             224, scale=(1.0, 1.0), ratio=(1.0, 1.0)
-            #         ),
-            #         transforms.ToTensor(),
-            #         transforms.Normalize(
-            #             mean=image_normalization_mean,
-            #             std=image_normalization_std
-            #         )
-            #     ]
-            # ),
             'image_path': input_path + 'images/validate/'
         }
     }
@@ -145,10 +121,6 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    # mask = DH.loadPickle(
-    #     '{0:0=2}'.format(int(args.sim_threshold * 10)),
-    #     input_path + 'comb_mask/'
-    # )
     mask = VU.rep_mask(category)
 
     # modelの設定

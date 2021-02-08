@@ -70,7 +70,8 @@ class MyBaseModel(metaclass=ABCMeta):
     @staticmethod
     def _activation_function(x):
         '''
-        活性化関数の定義．ここではSigmoid関数
+        活性化関数の定義．ここではSigmoid関数．
+        これtorch.nn.Sigmoid()で良い気もする
         '''
         sigmoid_range = 34.538776394910684
         if x <= -sigmoid_range:
@@ -114,17 +115,6 @@ class MyBaseModel(metaclass=ABCMeta):
         weight = torch.Tensor(weight).cuda() if self._use_gpu else weight
 
         return weight
-
-    def _predict(self, outputs, th=0.5):
-        '''
-        活性化関数後の値について，thを基準に予測クラスを1に，それ以外を0に変更
-        '''
-        outputs = outputs.data.cpu().numpy()
-        outputs = self._activation_function(outputs)
-        outputs[outputs >= th] = 1
-        outputs[outputs < th] = 0
-
-        return outputs
 
     def _processing_one_epoch(self, mode, dataset, epoch):
         '''
@@ -246,3 +236,29 @@ class MyBaseModel(metaclass=ABCMeta):
                 output[output < th] = 0
 
         return output
+
+    # def predict(self, testdata, normalized=True, labeling=False, th=0.5):
+    #     if self._use_gpu:
+    #         testdata = Variable(testdata).cuda()
+
+    #     self._model.eval()
+    #     output = self._model(testdata)
+    #     if normalized:
+    #         output = torch.nn.Sigmoid()(output)
+    #         if labeling:
+    #             output[output >= th] = 1
+    #             output[output < th] = 0
+
+    #     # numpyに戻す処理をいれる？
+    #     return output
+
+    # def _predict(self, outputs, th=0.5):
+    #     '''
+    #     活性化関数後の値について，thを基準に予測クラスを1に，それ以外を0に変更
+    #     '''
+    #     outputs = outputs.data.cpu().numpy()
+    #     outputs = self._activation_function(outputs)
+    #     outputs[outputs >= th] = 1
+    #     outputs[outputs < th] = 0
+
+    #     return outputs
