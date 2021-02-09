@@ -91,7 +91,6 @@ class GeoSim:
 
 if __name__ == "__main__":
     lda_o = DH.loadPickle(
-        # '../datas/geo_down/inputs/local_df_area16_wocoth_new.pickle'
         '../datas/bases/local_df_area16_wocoth_new.pickle'
     )
     asd = GeoSim().calculate(lda_o)

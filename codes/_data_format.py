@@ -167,7 +167,76 @@ def get_georep(saved=True, savepath='../datas/geo_rep/inputs/',
     return geo_reps
 
 
+def geospatial_df():
+    lda = DH.loadPickle('../datas/bases/local_df_area16_wocoth_new.pickle')
+    gda = lda[lda['visual'] == 1]
+
+    DH.savePickle(
+        gda,
+        '../datas/bases/geospatial_df_area16_wocoth.pickle'
+    )
+
+    return gda
+
+
+def limited_category(reps, lda='../datas/bases/local_df_area16_wocoth_new'):
+    gr = DH.loadPickle('geo_relationship.pickle', '../datas/bases')
+    vis_local = DH.loadJson('category', '../datas/gcn/inputs')
+    vis_rep = DH.loadJson('upper_category', '../datas/gcn/inputs')
+    local = set(vis_local) - set(vis_rep)
+
+    down = []
+    for item in reps:
+        down.extend(gr[item])
+
+    down = set(down) & set(local)
+
+    lda = DH.loadPickle(lda)
+    down = [item for item in down if len(lda['geo'][item]) > 0]
+    down = sorted(list(set(down) | set(reps)))
+
+    return {key: idx for idx, key in enumerate(down)}
+
+
+def get_geo():
+    grd = DH.loadPickle('../datas/bases/geo_rep_df_area16_kl5.pickle')
+    geo_rep_dict = grd.to_dict('index')
+    lda = DH.loadPickle('../datas/bases/local_df_area16_wocoth_new.pickle')
+    local_dict = lda.to_dict('index')
+    vis_rep = DH.loadJson('../datas/gcn/inputs/upper_category.json')
+    vis_down = DH.loadJson('../datas/gcn/inputs/category.json')
+    down_tag = sorted(set(vis_down) - set(vis_rep))
+
+    remove_geo_tag = []
+    for tag in geo_rep_dict:
+        if len(geo_rep_dict[tag]['down']) == 1:
+            remove_geo_tag.append(tag)
+    remove_geo_tag = list(set(remove_geo_tag))
+    geo_rep = []
+    norep_list = []
+    for tag in down_tag:
+        temp = list(
+            set(local_dict[tag]['geo_representative']) - set(remove_geo_tag)
+        )
+        if temp == []:
+            norep_list.append(tag)
+        else:
+            geo_rep.extend(temp)
+    geo_rep = list(set(geo_rep))
+    geo_rep2 = []
+    for tag in geo_rep:
+        geo_rep2.extend(list(
+            set(local_dict[tag]['geo_representative']) - set(remove_geo_tag)
+        ))
+
+    geo_rep = list(set(geo_rep2) - set(down_tag))
+    down_tag = list(set(down_tag) - set(norep_list))
+
+    return geo_rep, down_tag
+
+
 if __name__ == "__main__":
+    # geospatial_df()
     # vis_tag2file('rep')
     # vis_tag2file('local')
 
@@ -178,7 +247,7 @@ if __name__ == "__main__":
     # )
     # bbb = DH.loadPickle('../datas/gcn/inputs/comb_mask/04.pickle')
     # geodata_format()
-    # get_georep()
+    get_georep()
     geo_rep2()
     # samedown()
 

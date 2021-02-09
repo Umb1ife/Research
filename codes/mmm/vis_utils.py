@@ -75,7 +75,7 @@ class VisUtils:
                   base_path='../datas/bases/'):
         print('calculating mask ...')
         all_sim = DH.loadJson(base_path + 'vis_sim_dict')
-        local_dict = DH.loadPickle('local_df_area16_wocoth_new', base_path)
+        local_dict = DH.loadPickle('geospatial_df_area16_wocoth', base_path)
         local_dict = local_dict.to_dict('index')
         rep_dict = DH.loadPickle('rep_df_area16_wocoth', base_path)
         rep_dict = rep_dict.to_dict('index')

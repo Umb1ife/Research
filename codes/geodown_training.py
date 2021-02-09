@@ -41,25 +41,6 @@ parser.add_argument('--start_epoch', default=1, type=int, metavar='N')
 parser.add_argument('--workers', '-W', default=4, type=int, metavar='N')
 
 
-def limited_category(reps, lda='../datas/bases/local_df_area16_wocoth_new'):
-    gr = DH.loadPickle('geo_relationship.pickle', '../datas/bases')
-    vis_local = DH.loadJson('category', '../datas/gcn/inputs')
-    vis_rep = DH.loadJson('upper_category', '../datas/gcn/inputs')
-    local = set(vis_local) - set(vis_rep)
-
-    down = []
-    for item in reps:
-        down.extend(gr[item])
-
-    down = set(down) & set(local)
-
-    lda = DH.loadPickle(lda)
-    down = [item for item in down if len(lda['geo'][item]) > 0]
-    down = sorted(list(set(down) | set(reps)))
-
-    return {key: idx for idx, key in enumerate(down)}
-
-
 if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 初期設定
@@ -82,7 +63,6 @@ if __name__ == "__main__":
 
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
-    # category = limited_category(rep_category)
     num_class = len(category)
 
     # データの作成

@@ -91,7 +91,7 @@ def plot_map(phase='train', refined=False, limited=None,
     return _map
 
 
-def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
+def visualize_classmap(weight='../datas/geo_down/outputs/learned_rep35_bp2/000weight.pth',
                        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
                        limited=None):
     import colorsys
@@ -107,6 +107,7 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
     # load classifier
     from mmm import DataHandler as DH
     rep_category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
+    category = DH.loadJson('category.json', '../datas/geo_down/inputs')
     # mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
     # -------------------------------------------------------------------------
 
@@ -114,10 +115,10 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
     # category = limited_category(rep_category)
     # category = {'bellagio': 0, 'grandcentralstation': 1, 'lasvegas': 2,
     #             'newyorkcity': 3}
-    category = limited_category(
-        rep_category,
-        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    )
+    # category = limited_category(
+    #     rep_category,
+    #     lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
+    # )
     num_class = len(category)
 
     gcn_settings = {
@@ -825,8 +826,7 @@ def confusion_all_matrix(epoch=20, saved=True,
         fix_mask=mask,
         network_setting=gcn_settings,
     )
-    if epoch > 0:
-        model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
+    model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
 
     def _update_backprop_weight(labels, fmask):
         '''
@@ -962,16 +962,16 @@ def test():
 
 
 if __name__ == "__main__":
-    # confusion_all_matrix(
-    #     epoch=20,
-    #     weight_path='../datas/geo_down/outputs/learned_rep35_bp2/',
-    #     outputs_path='../datas/geo_down/outputs/check/learned_rep35_bp2/'
-    # )
-    # confusion_all_matrix(
-    #     epoch=0,
-    #     weight_path='../datas/geo_down/outputs/learned_rep35_bp2/',
-    #     outputs_path='../datas/geo_down/outputs/check/learned_rep35_bp2/'
-    # )
+    confusion_all_matrix(
+        epoch=20,
+        weight_path='../datas/geo_down/outputs/learned_rep35_bp2/',
+        outputs_path='../datas/geo_down/outputs/check/learned_rep35_bp2/'
+    )
+    confusion_all_matrix(
+        epoch=0,
+        weight_path='../datas/geo_down/outputs/learned_rep35_bp2/',
+        outputs_path='../datas/geo_down/outputs/check/learned_rep35_bp2/'
+    )
     # visualize_classmap()
     # plot_map()
     # visualize_training_data('bellagio')
