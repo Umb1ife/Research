@@ -105,13 +105,14 @@ class GeoUtils:
         return locate_tags_dictlist, (mean, std)
 
     @staticmethod
-    def rep_mask(category, sim_thr=5, reverse=True, saved=True,
+    def rep_mask(category, sim_thr=5, reverse=False, saved=True,
                  save_path='../datas/geo_rep/inputs/',
                  base_path='../datas/bases/'):
         print('calculating mask ...')
         repsnum = len(category)
         _mask = np.zeros((repsnum, repsnum), int)
-        sim_dict = DH.loadPickle('geo_rep_simdict', base_path)
+        # sim_dict = DH.loadPickle('geo_rep_simdict', base_path)
+        sim_dict = DH.loadJson('geo_rep_simdict', base_path)
 
         for tag1 in category:
             for tag2 in category:
@@ -119,7 +120,7 @@ class GeoUtils:
                     continue
 
                 sim = sim_dict[tag2][tag1] if reverse else sim_dict[tag1][tag2]
-                if sim < sim_thr:
+                if sim <= sim_thr:
                     _mask[category[tag1]][category[tag2]] = 1
 
         if saved:
@@ -171,14 +172,14 @@ class GeoUtils:
         num_classes = len(local_category)
         _mask = np.zeros((num_classes, num_classes), int)
 
-        sim_dict = DH.loadPickle('geo_down_simdict', base_path)
-        for tag1 in down_category:
+        sim_dict = DH.loadJson('geo_all_sim', base_path)
+        for tag1 in tqdm(down_category):
             for tag2 in down_category:
                 if tag1 == tag2:
                     continue
 
                 sim = sim_dict[tag2][tag1] if reverse else sim_dict[tag1][tag2]
-                if sim < sim_thr:
+                if sim <= sim_thr:
                     _mask[geo_category[tag1]][geo_category[tag2]] = 1
 
         if saved:
@@ -187,192 +188,65 @@ class GeoUtils:
         return _mask
 
     @staticmethod
-    def down_mask2(rep_category, local_category, sim_thr=5, reverse=False,
-                  saved=True, save_path='../datas/geo_down/inputs/',
-                  base_path='../datas/bases/'):
-        # ---------------------------------------------------------------------
-        all_sim = DH.loadPickle('geo_all_sim.pickle', '../datas/geo_rep/inputs')
-        local_dict = DH.loadPickle('local_df_area16_wocoth_new', base_path)
-        local_dict = local_dict.to_dict('index')
-        rep_dict = DH.loadPickle('geo_rep_df_area16_kl5', '../datas/geo_rep/inputs/geo')
-        rep_dict = rep_dict.to_dict('index')
-
-        comb_dict = {}
-        for tag1 in tqdm(local_category):
-            for tag2 in tqdm(local_category):
-                if tag1 == tag2:
-                    continue
-
-                if tag1 not in all_sim:
-                    continue
-
-                if tag2 not in all_sim[tag1]:
-                    continue
-
-                if all_sim[tag1][tag2] > sim_thr:
-                    continue
-
-                if tag1 not in comb_dict:
-                    comb_dict[tag1] = [tag2]
-                else:
-                    comb_dict[tag1].append(tag2)
-
-        # ---------------------------------------------------------------------
-        lc = local_category
-        down = sorted(list(set(lc) - set(rep_category)))
-        tagsnum = len(lc)
-        ldkeys = set(list(local_dict.keys()))
-        lcset = set(lc)
-        repset = set(rep_category)
-
-        mask = np.zeros((tagsnum, tagsnum), int)
-        for tag in tqdm(down):
-            flgs = [tag]
-            prev = []
-            while flgs:
-                temp = []
-                for item in flgs:
-                    temp.extend(list(
-                        set(local_dict[item]['geo_representative']) & lcset
-                    ))
-
-                prev.extend(temp)
-                flgs = list(set(temp) & ldkeys)
-                if set(flgs) == set(temp) & ldkeys:
-                    break
-
-            addprev = []
-            for ptag in prev:
-                if ptag in comb_dict:
-                    addprev.extend(list(
-                        set(comb_dict[ptag]) & repset
-                    ))
-
-            # prev = list(set(prev) | set(addprev))
-            prev = list((set(prev) | set(addprev)) & lcset)
-
-            for ptag in prev:
-                mask[lc[tag]][lc[ptag]] = 1
-                if ptag in comb_dict:
-                    for ctag in comb_dict[ptag]:
-                        mask[lc[tag]][lc[ctag]] = 1
-
-                temp = list(
-                    set(rep_dict[ptag]['down']) & lcset
-                )
-                for ttag in temp:
-                    if ttag != tag:
-                        mask[lc[tag]][lc[ttag]] = 1
-
-                    if ttag in rep_dict:
-                        ttagdown = list(
-                            set(rep_dict[ttag]['down'])
-                            & lcset
-                        )
-                        for tdtag in ttagdown:
-                            if tdtag != tag:
-                                mask[lc[tag]][lc[tdtag]] = 1
-
-            if tag in rep_dict:
-                for rtag in rep_dict[tag]['down']:
-                    if rtag in lcset and rtag != tag:
-                        mask[lc[tag]][lc[rtag]] = 1
-
-            if tag in comb_dict:
-                for ctag in comb_dict[tag]:
-                    mask[lc[tag]][lc[ctag]] = 1
-
-        for i in range(tagsnum):
-            mask[i, i] = 0
-
-        if saved:
-            DH.savePickle(
-                mask, '{0:0=2}.pickle'.format(int(sim_thr * 10)), save_path
-            )
-
-        return mask
-
-    @staticmethod
     def down_mask(rep_category, local_category, sim_thr=5, reverse=False,
                   saved=True, save_path='../datas/geo_down/inputs/',
                   base_path='../datas/bases/'):
-        # ---------------------------------------------------------------------
-        all_sim = DH.loadPickle('geo_all_sim.pickle', '../datas/geo_rep/inputs')
-        vis_dict = DH.loadPickle('visual_df_area16_wocoth', base_path)
-        vis_dict = vis_dict.to_dict('index')
-        rep_dict = DH.loadPickle(
-            'geo_rep_df_area16_kl5', '../datas/geo_rep/inputs/geo'
-        )
+        print('calculating mask ...')
+        all_sim = DH.loadJson('geo_all_sim.json', base_path)
+        gsp_dict = DH.loadPickle('geospatial_df_area16_wocoth', base_path)
+        gsp_dict = gsp_dict.to_dict('index')
+        rep_dict = DH.loadPickle('geo_rep_df_area16_kl5', base_path)
         rep_dict = rep_dict.to_dict('index')
 
-        comb_dict = {}
-        for tag1 in tqdm(local_category):
+        comb_dict = {key: [] for key in local_category}
+        for tag1 in local_category:
             for tag2 in local_category:
                 if tag1 == tag2:
                     continue
 
-                if tag1 not in all_sim:
-                    continue
-
-                if tag2 not in all_sim[tag1]:
-                    continue
-
-                if all_sim[tag1][tag2] > sim_thr:
-                    continue
-
-                if tag1 not in comb_dict:
-                    comb_dict[tag1] = [tag2]
-                else:
+                if all_sim[tag1][tag2] <= sim_thr:
                     comb_dict[tag1].append(tag2)
 
         # ---------------------------------------------------------------------
         lc = local_category
         down = sorted(list(set(lc) - set(rep_category)))
         tagsnum = len(lc)
-        vdkeys = set(list(vis_dict.keys()))
+        gspkeys = set(list(gsp_dict.keys()))
         lcset = set(lc)
         repset = set(rep_category)
 
         mask = np.zeros((tagsnum, tagsnum), int)
         for tag in tqdm(down):
-            flgs = [tag]
-            prev = []
+            flgs = {tag}
+            prev = set()
+            checked = set()
             while flgs:
-                temp = []
                 for item in flgs:
-                    temp.extend(list(
-                        set(vis_dict[item]['representative']) & lcset
-                    ))
+                    checked.add(item)
+                    prev = prev | set(gsp_dict[item]['geo_representative'])
 
-                prev.extend(temp)
-                flgs = list(set(temp) & vdkeys)
+                prev = prev & lcset
+                flgs = (prev - checked) & gspkeys
 
-            addprev = []
+            exprev = set()
             for ptag in prev:
                 if ptag in comb_dict:
-                    addprev.extend(list(
-                        set(comb_dict[ptag]) & repset
-                    ))
+                    exprev = exprev | (set(comb_dict[ptag]) & repset)
 
-            prev = list(set(prev) | set(addprev))
+            prev = prev | exprev
 
             for ptag in prev:
                 mask[lc[tag]][lc[ptag]] = 1
                 for ctag in comb_dict[ptag]:
                     mask[lc[tag]][lc[ctag]] = 1
 
-                temp = list(
-                    set(rep_dict[ptag]['down']) & lcset
-                )
+                temp = set(rep_dict[ptag]['down']) & lcset
                 for ttag in temp:
                     if ttag != tag:
                         mask[lc[tag]][lc[ttag]] = 1
 
                     if ttag in rep_dict:
-                        ttagdown = list(
-                            set(rep_dict[ttag]['down'])
-                            & lcset
-                        )
+                        ttagdown = set(rep_dict[ttag]['down']) & lcset
                         for tdtag in ttagdown:
                             if tdtag != tag:
                                 mask[lc[tag]][lc[tdtag]] = 1
@@ -382,16 +256,12 @@ class GeoUtils:
                     if rtag in lcset and rtag != tag:
                         mask[lc[tag]][lc[rtag]] = 1
 
-            if tag in comb_dict:
-                for ctag in comb_dict[tag]:
-                    mask[lc[tag]][lc[ctag]] = 1
+            for ctag in comb_dict[tag]:
+                mask[lc[tag]][lc[ctag]] = 1
 
-        for i in range(tagsnum):
-            mask[i, i] = 0
+        np.fill_diagonal(mask, 0)
 
         if saved:
-            DH.savePickle(
-                mask, '{0:0=2}.pickle'.format(int(sim_thr * 10)), save_path
-            )
+            DH.savePickle(mask, 'mask_{0}'.format(sim_thr), save_path)
 
         return mask

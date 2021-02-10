@@ -112,7 +112,8 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    mask = DH.loadPickle('04.pickle', input_path)
+    # mask = DH.loadPickle('04.pickle', input_path)
+    mask = VU.down_mask(rep_category, category, saved=False)
 
     # 誤差伝播の重みの読み込み
     bp_weight = DH.loadNpy('backprop_weight.npy', input_path)
@@ -132,8 +133,11 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 学習
     # -------------------------------------------------------------------------
-    mpath = '../datas/comparison/mask_bp/learned'
-    writer = SummaryWriter(log_dir='../datas/comparison/mask_bp/log/')
+    save_path = 'lmask_bp'
+    mpath = '../datas/comparison/{0}/learned'.format(save_path)
+    writer = SummaryWriter(
+        log_dir='../datas/comparison/{0}/log/'.format(save_path)
+    )
 
     train_loss, train_recall, train_precision = model.validate(train_loader)
     val_loss, val_recall, val_precision = model.validate(val_loader)

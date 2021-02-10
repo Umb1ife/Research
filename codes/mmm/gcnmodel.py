@@ -56,7 +56,6 @@ class GCNModel(nn.Module):
         A = np.zeros((num_class, num_class), dtype=int)
         all_category_labels = list(category.keys())
 
-        # for label, _ in upper_category.items():
         for label, _ in category.items():
             if label not in relationship:
                 continue

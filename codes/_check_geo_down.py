@@ -99,7 +99,7 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned_rep35_bp2/000we
     import numpy as np
     import torch
     # from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
-    from geodown_training import limited_category
+    # from geodown_training import limited_category
     from mmm import GeotagGCN
     from tqdm import tqdm
 
@@ -121,15 +121,27 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned_rep35_bp2/000we
     # )
     num_class = len(category)
 
+    # gcn_settings = {
+    #     'category': category,
+    #     'rep_category': rep_category,
+    #     'filepaths': {
+    #         'relationship': '../datas/bases/geo_relationship.pickle',
+    #         # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
+    #         'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
+    #     },
+    #     'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+    #     'BR_settings': {'fineness': (20, 20)},
+    # }
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
-        'filepaths': {
-            'relationship': '../datas/bases/geo_relationship.pickle',
-            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-        },
-        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+        'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
+        'rep_weight': torch.load('../datas/geo_down/inputs/rep_weight.pth'),
+        # 'rep_weight': torch.load('../datas/geo_rep/outputs/learned_nobp_za5/060weight.pth'),
+        # 'rep_weight': torch.load('../datas/geo_rep/outputs/learned_za5/060weight.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned/200weight.pth'
+        ),
         'BR_settings': {'fineness': (20, 20)},
     }
 
@@ -362,22 +374,34 @@ def visualize_oneclass_predict(tag, phase='train', epoch=20,
         lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
     )
     num_class = len(category)
-    base_path = '../datas/bases/'
+    # base_path = '../datas/bases/'
     input_path = '../datas/geo_down/inputs/'
 
+    # gcn_settings = {
+    #     'category': category,
+    #     'rep_category': rep_category,
+    #     'filepaths': {
+    #         # 'relationship': '../datas/bases/geo_relationship.pickle',
+    #         'relationship': base_path + 'geo_relationship.pickle',
+    #         # 'learned_weight': '../datas/geo_rep/outputs/learned_small/010weight.pth'
+    #         'learned_weight': input_path + '200weight.pth'
+    #     },
+    #     'feature_dimension': 30,
+    #     'simplegeonet_settings': {
+    #         'class_num': len(rep_category), 'mean': mean, 'std': std
+    #     }
+    # }
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
-        'filepaths': {
-            # 'relationship': '../datas/bases/geo_relationship.pickle',
-            'relationship': base_path + 'geo_relationship.pickle',
-            # 'learned_weight': '../datas/geo_rep/outputs/learned_small/010weight.pth'
-            'learned_weight': input_path + '200weight.pth'
-        },
-        'feature_dimension': 30,
-        'simplegeonet_settings': {
-            'class_num': len(rep_category), 'mean': mean, 'std': std
-        }
+        'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
+        'rep_weight': torch.load('../datas/geo_down/inputs/rep_weight.pth'),
+        # 'rep_weight': torch.load('../datas/geo_rep/outputs/learned_nobp_za5/060weight.pth'),
+        # 'rep_weight': torch.load('../datas/geo_rep/outputs/learned_za5/060weight.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned/200weight.pth'
+        ),
+        'BR_settings': {'fineness': (20, 20)},
     }
 
     model = GeotagGCN(
@@ -796,15 +820,27 @@ def confusion_all_matrix(epoch=20, saved=True,
     #         'class_num': len(rep_category), 'mean': mean, 'std': std
     #     }
     # }
+    # gcn_settings = {
+    #     'category': category,
+    #     'rep_category': rep_category,
+    #     'filepaths': {
+    #         'relationship': '../datas/bases/geo_relationship.pickle',
+    #         # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
+    #         'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
+    #     },
+    #     'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+    #     'BR_settings': {'fineness': (20, 20)},
+    # }
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
-        'filepaths': {
-            'relationship': '../datas/bases/geo_relationship.pickle',
-            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-        },
-        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+        'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
+        'rep_weight': torch.load('../datas/geo_down/inputs/rep_weight.pth'),
+        # 'rep_weight': torch.load('../datas/geo_rep/outputs/learned_nobp_za5/060weight.pth'),
+        # 'rep_weight': torch.load('../datas/geo_rep/outputs/learned_za5/060weight.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned/200weight.pth'
+        ),
         'BR_settings': {'fineness': (20, 20)},
     }
 

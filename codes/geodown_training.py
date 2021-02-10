@@ -66,16 +66,8 @@ if __name__ == "__main__":
     num_class = len(category)
 
     # データの作成
-    geo_down_train = GU.down_dataset(
-        rep_category, category, 'train',
-        base_path=base_path
-        # base_path=input_path
-    )
-    geo_down_validate = GU.down_dataset(
-        rep_category, category, 'validate',
-        base_path=base_path
-        # base_path=input_path
-    )
+    geo_down_train = GU.down_dataset(rep_category, category, 'train')
+    geo_down_validate = GU.down_dataset(rep_category, category, 'validate')
     DH.savePickle(geo_down_train, 'geo_down_train', input_path)
     DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
 
@@ -125,37 +117,16 @@ if __name__ == "__main__":
     bp_weight = np.power(bp_weight, 2)
 
     # -------------------------------------------------------------------------
-    # geo_down_train = GU.zerodata_augmentation(
-    #     geo_down_train,
-    #     numdata_sqrt_oneclass=5
-    # )
-    # train_dataset = DatasetGeotag(**kwargs_DF['train'])
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset,
-    #     shuffle=True,
-    #     batch_size=batchsize,
-    #     num_workers=numwork
-    # )
-
-    # if torch.cuda.is_available():
-    #     train_loader.pin_memory = True
-    #     cudnn.benchmark = True
-    # -------------------------------------------------------------------------
-
-    # 入力位置情報の正規化のためのパラメータ読み込み
-    mean, std = DH.loadNpy('normalize_params', input_path)
-
-    # 学習で用いるデータの設定や読み込み先
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
-        'filepaths': {
-            'relationship': base_path + 'geo_relationship.pickle',
-            'learned_weight': '../datas/geo_down/inputs/rep_weight.pth'
-            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            # 'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-        },
-        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+        'relationship': DH.loadPickle('geo_relationship.pickle', base_path),
+        'rep_weight': torch.load(input_path + 'rep_weight.pth'),
+        # 'rep_weight': torch.load(input_path + 'weights/bp2_za5.pth'),
+        # 'rep_weight': torch.load(input_path + 'weights/nobp_za5.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned/200weight.pth'
+        ),
         'BR_settings': {'fineness': (20, 20)},
     }
 

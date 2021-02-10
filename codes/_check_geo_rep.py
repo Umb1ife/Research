@@ -15,7 +15,7 @@ def plot_map(phase='train', refined=False, limited=None,
     datas, (mean, std) = GU.rep_dataset(
         category, phase,
         # base_path='../datas/geo_down/inputs/'
-        base_path=input_path
+        # base_path=input_path
     )
     category = list(category.keys())
     # class_num = len(category)

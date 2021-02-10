@@ -231,6 +231,21 @@ def get_geo():
 
     geo_rep = list(set(geo_rep2) - set(down_tag))
     down_tag = list(set(down_tag) - set(norep_list))
+    down_t2f = DH.loadJson('down_tag2file', '../datas/bases/')
+    down_t2f = down_t2f['train']
+    down_tag = set(down_tag) & set(down_t2f)
+
+    vis_down = sorted(set(down_tag) | set(vis_rep))
+    vis_down = {key: idx for idx, key in enumerate(vis_down)}
+    geo_rep = sorted(geo_rep)
+    geo_rep = {key: idx for idx, key in enumerate(geo_rep)}
+    geo_down = sorted(set(down_tag) | set(geo_rep))
+    geo_down = {key: idx for idx, key in enumerate(geo_down)}
+
+    DH.saveJson(vis_down, '../datas/vis_down/inputs/category.json')
+    DH.saveJson(geo_rep, '../datas/geo_rep/inputs/category.json')
+    DH.saveJson(geo_rep, '../datas/geo_down/inputs/upper_category.json')
+    DH.saveJson(geo_down, '../datas/geo_down/inputs/category.json')
 
     return geo_rep, down_tag
 
@@ -247,7 +262,7 @@ if __name__ == "__main__":
     # )
     # bbb = DH.loadPickle('../datas/gcn/inputs/comb_mask/04.pickle')
     # geodata_format()
-    get_georep()
+    get_geo()
     geo_rep2()
     # samedown()
 

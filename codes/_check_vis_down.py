@@ -1,8 +1,8 @@
 
 
 def confusion_all_matrix(epoch=20, saved=True,
-                         weight_path='../datas/geo_down/outputs/learned/',
-                         outputs_path='../datas/geo_down/outputs/check/'):
+                         weight_path='../datas/vis_down/outputs/learned/',
+                         outputs_path='../datas/vis_down/outputs/check/'):
     '''
     正例・unknown・負例についてconfusion_matrixを作成
     '''
@@ -61,7 +61,7 @@ def confusion_all_matrix(epoch=20, saved=True,
     num_class = train_dataset.num_category()
 
     # maskの読み込み
-    mask = VU.down_mask(rep_category, category, sim_thr=0.4)
+    mask = VU.down_mask(rep_category, category, sim_thr=0.4, saved=False)
 
     # 学習で用いるデータの設定や読み込み先
     gcn_settings = {
@@ -508,18 +508,18 @@ def predict_sample(epoch=20, phase='train', saved=True, num=3, thr=0.5,
 
 
 if __name__ == "__main__":
-    predict_sample(saved=True, num=1000)
+    # predict_sample(saved=True, num=1000)
     # rep_confmat(saved=True)
     # hist_change(saved=True)
-    # confusion_all_matrix(
-    #     epoch=20,
-    #     weight_path='../datas/vis_down/outputs/learned_lr1_bp15/',
-    #     outputs_path='../datas/vis_down/outputs/check/learned_lr1_bp15/'
-    # )
-    # confusion_all_matrix(
-    #     epoch=0,
-    #     weight_path='../datas/vis_down/outputs/learned_lr1_bp15/',
-    #     outputs_path='../datas/vis_down/outputs/check/learned_lr1_bp15/'
-    # )
+    confusion_all_matrix(
+        epoch=20,
+        weight_path='../datas/vis_down/outputs/learned/',
+        outputs_path='../datas/vis_down/outputs/check/learned/'
+    )
+    confusion_all_matrix(
+        epoch=0,
+        weight_path='../datas/vis_down/outputs/learned/',
+        outputs_path='../datas/vis_down/outputs/check/learned/'
+    )
 
     print('finish.')

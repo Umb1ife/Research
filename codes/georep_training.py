@@ -108,12 +108,12 @@ if __name__ == "__main__":
         if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
-    import numpy as np
-    bp_weight = np.power(bp_weight, 2)
+    # import numpy as np
+    # bp_weight = np.power(bp_weight, 2)
 
     # -------------------------------------------------------------------------
     geo_rep_train = GU.zerodata_augmentation(
-        geo_rep_train, numdata_sqrt_oneclass=10
+        geo_rep_train, numdata_sqrt_oneclass=5
     )
     train_dataset = DatasetGeotag(**kwargs_DF['train'])
     train_loader = torch.utils.data.DataLoader(
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         momentum=0.9,
         fix_mask=mask,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        # backprop_weight=bp_weight,
+        backprop_weight=bp_weight,
         network_setting={
             'num_classes': num_class,
             'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',

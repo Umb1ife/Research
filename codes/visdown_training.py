@@ -36,7 +36,7 @@ parser.add_argument(
     metavar='path of directory log saved'
 )
 parser.add_argument(
-    '--learning_rate', '-lr', default=0.1, type=float, metavar='N'
+    '--learning_rate', '-lr', default=1, type=float, metavar='N'
 )
 parser.add_argument(
     '--sim_threshold', '-Sth', default=0.4, type=float, metavar='N'
@@ -122,13 +122,17 @@ if __name__ == "__main__":
 
     # maskの読み込み
     mask = DH.loadPickle('04.pickle', input_path) if args.load_mask else None
-    mask = VU.down_mask(rep_category, category, sim_thr=args.sim_threshold)
+    mask = VU.down_mask(
+        rep_category, category,
+        sim_thr=args.sim_threshold,
+        saved=False
+    )
 
     # 誤差伝播の重みの読み込み
     bp_weight = DH.loadNpy('backprop_weight', input_path) \
         if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
-        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+        else MakeBPWeight(train_dataset, num_class, mask, False, input_path)
     bp_weight = np.power(bp_weight, 2)
 
     # 学習で用いるデータの設定や読み込み先
