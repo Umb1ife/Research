@@ -152,20 +152,3 @@ class RepGeoClassifier(MyBaseModel):
         precision = 0.0 if pred_total == 0 else correct / pred_total
 
         return epoch_loss, recall, precision
-
-
-class _RepGeoClassifier(MyBaseModel):
-    '''
-    位置情報でクラス分類を行うネットワーク
-    '''
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def _mynetwork(self, settings):
-        '''
-        学習するネットワークの定義．
-        '''
-        self._model = SimpleGeoNet(**settings)
-        self._optimizer = self._optimizer(
-            self._model.parameters(), lr=self._lr, momentum=self._momentum
-        )

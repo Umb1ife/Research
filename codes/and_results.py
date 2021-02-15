@@ -68,7 +68,7 @@ def iweight(labels, mask, category):
 
 def lastmask(category=None):
     vis_down = DH.loadJson('category.json', '../datas/vis_down/inputs')
-    geo_rep = DH.loadJson('category.json', '../datas/geo_rep/inputs')
+    # geo_rep = DH.loadJson('category.json', '../datas/geo_rep/inputs')
     geo_down = DH.loadJson('category.json', '../datas/geo_down/inputs')
 
     vdlist = np.array(list(vis_down))
@@ -83,8 +83,8 @@ def lastmask(category=None):
         vissim = vdlist[vismask[vis_down[cat]] > 0]
         geosim = gdlist[geomask[geo_down[cat]] > 0]
 
-        # lsim = set(vissim) & set(geosim)
-        lsim = set(vissim) & set(geo_down)
+        lsim = set(vissim) & set(geosim)
+        # lsim = set(vissim) & set(geo_down)
         lsim_idx = [category[item] for item in lsim]
         temp = np.zeros(len(category))
         temp[lsim_idx] = 1
@@ -126,18 +126,28 @@ def recognize(saved=True):
         network_setting=visgcn_settings,
     )
     vis_model.loadmodel(
-        '020weight.pth', '../datas/vis_down/outputs/learned_lr1_bp20/'
+        '020weight.pth', '../datas/vis_down/outputs/learned_lmask/'
     )
     # -------------------------------------------------------------------------
+    # geogcn_settings = {
+    #     'category': geo_down,
+    #     'rep_category': geo_rep,
+    #     'filepaths': {
+    #         'relationship': '../datas/bases/geo_relationship.pickle',
+    #         # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
+    #         'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
+    #     },
+    #     'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+    #     'BR_settings': {'fineness': (20, 20)},
+    # }
     geogcn_settings = {
         'category': geo_down,
         'rep_category': geo_rep,
-        'filepaths': {
-            'relationship': '../datas/bases/geo_relationship.pickle',
-            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-        },
-        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+        'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
+        'rep_weight': torch.load('../datas/geo_down/inputs/rep_weight.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned/200weight.pth'
+        ),
         'BR_settings': {'fineness': (20, 20)},
     }
 
@@ -148,7 +158,7 @@ def recognize(saved=True):
         network_setting=geogcn_settings,
     )
     geo_model.loadmodel(
-        '020weight.pth', '../datas/geo_down/outputs/learned_rep35_bp2'
+        '020weight.pth', '../datas/geo_down/outputs/learned_rep32_bp_lmask'
     )
     # -------------------------------------------------------------------------
     pld2017 = DH.loadPickle('photo_loc_dict_2017.pickle',
@@ -222,28 +232,30 @@ def recognize(saved=True):
 
 
 def lastresult(phase='train', before_labeling=False, thr=0.5, blthr=0.5):
-    rcgs = DH.loadPickle('../datas/last/recog_{0}.pickle'.format(phase))
+    rcgs = DH.loadPickle('../datas/last/recog_{0}_all.pickle'.format(phase))
     geo_rep = DH.loadJson('category.json', '../datas/geo_rep/inputs')
     geo_down = DH.loadJson('category.json', '../datas/geo_down/inputs')
 
-    catlist = np.array(sorted(list(set(geo_down) - set(geo_rep))))
+    catset = set(geo_down) - set(geo_rep)
+    catlist = np.array(sorted(catset))
     category = {cat: idx for idx, cat in enumerate(catlist)}
-    # lm = lastmask(category)
+    lm = lastmask(category)
     # -------------------------------------------------------------------------
     cnt_rc = np.zeros((len(category), 2))
     cnt_pr = np.zeros((len(category), 2))
+    conf_mat = np.zeros((2, 2))
     results = []
     for rcg in tqdm(rcgs):
         true_label, vprd, gprd, filename, locate = rcg
-        # iw = iweight(true_label, lm, category)
+        iw = iweight(true_label, lm, category)
         if before_labeling:
             vprd[vprd >= blthr] = 1
             vprd[vprd < blthr] = 0
             gprd[gprd >= blthr] = 1
             gprd[gprd < blthr] = 0
 
-        # lprd = vprd * gprd * iw
-        lprd = vprd * gprd
+        lprd = vprd * gprd * iw
+        # lprd = vprd * gprd
         pidx = lprd >= thr
         prd = catlist[pidx]
         # pll = lprd[pidx]
@@ -263,11 +275,18 @@ def lastresult(phase='train', before_labeling=False, thr=0.5, blthr=0.5):
             cnt_rc[category[item]][1] += 1
             if item in prd:
                 cnt_rc[category[item]][0] += 1
+                conf_mat[1][1] += 1
+            else:
+                conf_mat[1][0] += 1
 
         for item in prd:
             cnt_pr[category[item]][1] += 1
             if item in true_label:
                 cnt_pr[category[item]][0] += 1
+            else:
+                conf_mat[0][1] += 1
+
+        conf_mat[0][0] += len(catset - set(prd) - set(true_label))
 
     recall = cnt_rc.sum(axis=0)
     recall = recall[0] / recall[1]
@@ -278,6 +297,31 @@ def lastresult(phase='train', before_labeling=False, thr=0.5, blthr=0.5):
     fkey_rdict = {item[6]: item[:3] for item in results}
 
     return results
+
+
+def coverage(phase='train'):
+    rcgs = DH.loadPickle('../datas/last/recog_{0}_all.pickle'.format(phase))
+    geo_rep = DH.loadJson('category.json', '../datas/geo_rep/inputs')
+    geo_down = DH.loadJson('category.json', '../datas/geo_down/inputs')
+
+    catlist = np.array(sorted(list(set(geo_down) - set(geo_rep))))
+    category = {cat: idx for idx, cat in enumerate(catlist)}
+    lm = lastmask(category)
+    # -------------------------------------------------------------------------
+    lank_list = []
+    for rcg in tqdm(rcgs):
+        true_label, vprd, gprd, filename, locate = rcg
+        iw = iweight(true_label, lm, category)
+        lprd = vprd * gprd * iw
+        sprd = np.array(sorted(list(zip(lprd, catlist)), key=lambda x: -x[0]))
+        tlset = set(true_label)
+        for lank, (_, tag) in enumerate(sprd):
+            tlset.discard(tag)
+            if not tlset:
+                lank_list.append(lank + 1)
+                break
+
+    return lank_list
 
 
 def predict_samples(phase='train', num_images=10000, max_falsepositive=5):
@@ -394,11 +438,13 @@ def predict_sample(filename, fkey_rdict, phase='train', max_falsepositive=5):
 
 
 if __name__ == "__main__":
-    predict_samples(num_images=10000)
+    # predict_samples(num_images=10000)
     # rrr()
     # lastmask()
     # recognize()
     # test()
-    # lastresult(before_labeling=True, thr=0.5)
+    # top_n_acc()
+    # coverage()
+    lastresult(before_labeling=True, thr=0.5)
 
     print('finish.')

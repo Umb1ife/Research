@@ -125,7 +125,7 @@ if __name__ == "__main__":
     mask = VU.down_mask(
         rep_category, category,
         sim_thr=args.sim_threshold,
-        saved=False
+        saved=True
     )
 
     # 誤差伝播の重みの読み込み

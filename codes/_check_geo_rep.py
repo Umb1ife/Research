@@ -334,9 +334,11 @@ def confusion_all_matrix(epoch=200, saved=True,
         }
     )
 
-    if epoch > 0:
-        model.loadmodel('{0:0=3}weight'.format(epoch),
-                        '../datas/geo_rep/outputs/learned_bp_zeroag10_35/')
+    # model.loadmodel('../datas/geo_down/inputs/rep_weight.pth')
+    # model.loadmodel('../datas/geo_down/inputs/weights/bp2_za10.pth')
+    model.loadmodel('../datas/geo_down/inputs/weights/nobp_za10.pth')
+    # model.loadmodel('{0:0=3}weight'.format(epoch),
+    #                 '../datas/geo_rep/outputs/learned_bp_zeroag10_35/')
 
     def _update_backprop_weight(labels, fmask):
         '''
@@ -441,10 +443,10 @@ def confusion_all_matrix(epoch=200, saved=True,
 
 
 if __name__ == "__main__":
-    # confusion_all_matrix(
-    #     epoch=200,
-    #     outputs_path='../datas/geo_rep/outputs/check/last/'
-    # )
+    confusion_all_matrix(
+        epoch=200,
+        outputs_path='../datas/geo_rep/outputs/check/rep32_nobp/'
+    )
     # confusion_all_matrix(
     #     epoch=0,
     #     outputs_path='../datas/geo_rep/outputs/check/last/'

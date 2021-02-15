@@ -121,9 +121,9 @@ if __name__ == "__main__":
         'category': category,
         'rep_category': rep_category,
         'relationship': DH.loadPickle('geo_relationship.pickle', base_path),
-        'rep_weight': torch.load(input_path + 'rep_weight.pth'),
-        # 'rep_weight': torch.load(input_path + 'weights/bp2_za5.pth'),
-        # 'rep_weight': torch.load(input_path + 'weights/nobp_za5.pth'),
+        # 'rep_weight': torch.load(input_path + 'rep_weight.pth'),
+        # 'rep_weight': torch.load(input_path + 'weights/bp2_za10.pth'),
+        'rep_weight': torch.load(input_path + 'weights/nobp_za10.pth'),
         'base_weight': torch.load(
             '../datas/geo_base/outputs/learned/200weight.pth'
         ),

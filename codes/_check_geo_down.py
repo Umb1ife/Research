@@ -749,7 +749,6 @@ def confusion_all_matrix(epoch=20, saved=True,
     import numpy as np
     import os
     import torch
-    # from geodown_training import limited_category
     from mmm import DataHandler as DH
     from mmm import DatasetGeotag
     from mmm import GeotagGCN
@@ -765,23 +764,15 @@ def confusion_all_matrix(epoch=20, saved=True,
 
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
-    # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    # category = limited_category(rep_category)
-    # category = limited_category(
-    #     rep_category,
-    #     # lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    # )
     num_class = len(category)
 
     geo_down_train = GU.down_dataset(
         rep_category, category, 'train',
         base_path=base_path
-        # base_path=input_path
     )
     geo_down_validate = GU.down_dataset(
         rep_category, category, 'validate',
         base_path=base_path
-        # base_path=input_path
     )
 
     kwargs_DF = {
@@ -803,41 +794,13 @@ def confusion_all_matrix(epoch=20, saved=True,
     # maskの読み込み
     mask = GU.down_mask(rep_category, category, saved=False)
 
-    # 入力位置情報の正規化のためのパラメータ読み込み
-    # mean, std = DH.loadNpy('normalize_params', input_path)
-
-    # 学習で用いるデータの設定や読み込み先
-    # gcn_settings = {
-    #     'category': category,
-    #     'rep_category': rep_category,
-    #     'filepaths': {
-    #         'relationship': base_path + 'geo_relationship.pickle',
-    #         # 'learned_weight': input_path + '020weight.pth'
-    #         'learned_weight': input_path + '200weight.pth'
-    #     },
-    #     'feature_dimension': 30,
-    #     'simplegeonet_settings': {
-    #         'class_num': len(rep_category), 'mean': mean, 'std': std
-    #     }
-    # }
-    # gcn_settings = {
-    #     'category': category,
-    #     'rep_category': rep_category,
-    #     'filepaths': {
-    #         'relationship': '../datas/bases/geo_relationship.pickle',
-    #         # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-    #         'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-    #     },
-    #     'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-    #     'BR_settings': {'fineness': (20, 20)},
-    # }
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
         'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
         'rep_weight': torch.load('../datas/geo_down/inputs/rep_weight.pth'),
-        # 'rep_weight': torch.load('../datas/geo_rep/outputs/learned_nobp_za5/060weight.pth'),
-        # 'rep_weight': torch.load('../datas/geo_rep/outputs/learned_za5/060weight.pth'),
+        # 'rep_weight': torch.load('../datas/geo_down/inputs/weights/bp2_za10.pth'),
+        # 'rep_weight': torch.load('../datas/geo_down/inputs/weights/nobp_za10.pth'),
         'base_weight': torch.load(
             '../datas/geo_base/outputs/learned/200weight.pth'
         ),
@@ -845,15 +808,6 @@ def confusion_all_matrix(epoch=20, saved=True,
     }
 
     # modelの設定
-    # model = GeotagGCN(
-    #     class_num=num_class,
-    #     learningrate=0.1,
-    #     momentum=0.9,
-    #     weight_decay=1e-4,
-    #     fix_mask=mask,
-    #     network_setting=gcn_settings,
-    #     multigpu=False,
-    # )
     model = GeotagGCN(
         class_num=num_class,
         learningrate=0.1,
@@ -1000,13 +954,13 @@ def test():
 if __name__ == "__main__":
     confusion_all_matrix(
         epoch=20,
-        weight_path='../datas/geo_down/outputs/learned_rep35_bp2/',
-        outputs_path='../datas/geo_down/outputs/check/learned_rep35_bp2/'
+        weight_path='../datas/geo_down/outputs/learned_rep32_nobp/',
+        outputs_path='../datas/geo_down/outputs/check/learned_rep32_nobp/'
     )
     confusion_all_matrix(
         epoch=0,
-        weight_path='../datas/geo_down/outputs/learned_rep35_bp2/',
-        outputs_path='../datas/geo_down/outputs/check/learned_rep35_bp2/'
+        weight_path='../datas/geo_down/outputs/learned_rep32_bp/',
+        outputs_path='../datas/geo_down/outputs/check/learned_rep32_nobp/'
     )
     # visualize_classmap()
     # plot_map()

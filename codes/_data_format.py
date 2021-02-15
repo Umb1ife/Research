@@ -198,7 +198,7 @@ def limited_category(reps, lda='../datas/bases/local_df_area16_wocoth_new'):
     return {key: idx for idx, key in enumerate(down)}
 
 
-def get_geo():
+def get_geo(saved=True):
     grd = DH.loadPickle('../datas/bases/geo_rep_df_area16_kl5.pickle')
     geo_rep_dict = grd.to_dict('index')
     lda = DH.loadPickle('../datas/bases/local_df_area16_wocoth_new.pickle')
@@ -207,6 +207,31 @@ def get_geo():
     vis_down = DH.loadJson('../datas/gcn/inputs/category.json')
     down_tag = sorted(set(vis_down) - set(vis_rep))
 
+    # -------------------------------------------------------------------------
+    rep_onedown = set()
+    for tag in geo_rep_dict:
+        if len(geo_rep_dict[tag]['down']) == 1:
+            rep_onedown.add(tag)
+
+    geo_rep1 = set()
+    noreps = set()
+    for tag in down_tag:
+        temp = set(local_dict[tag]['geo_representative']) - rep_onedown
+        if temp:
+            geo_rep1 = geo_rep1 | temp
+            oneofrep = set(local_dict[tag]['geo_representative']) & rep_onedown
+            geo_rep1 = geo_rep1 | oneofrep
+        else:
+            noreps.add(tag)
+
+    geo_rep2 = set()
+    for tag in geo_rep1:
+        geo_rep2 = geo_rep2 | set(local_dict[tag]['geo_representative'])
+
+    geo_rep = geo_rep2 - set(down_tag)
+    down_tag = set(down_tag) - noreps
+
+    # -------------------------------------------------------------------------
     remove_geo_tag = []
     for tag in geo_rep_dict:
         if len(geo_rep_dict[tag]['down']) == 1:
@@ -231,6 +256,8 @@ def get_geo():
 
     geo_rep = list(set(geo_rep2) - set(down_tag))
     down_tag = list(set(down_tag) - set(norep_list))
+
+    # -------------------------------------------------------------------------
     down_t2f = DH.loadJson('down_tag2file', '../datas/bases/')
     down_t2f = down_t2f['train']
     down_tag = set(down_tag) & set(down_t2f)
@@ -242,10 +269,11 @@ def get_geo():
     geo_down = sorted(set(down_tag) | set(geo_rep))
     geo_down = {key: idx for idx, key in enumerate(geo_down)}
 
-    DH.saveJson(vis_down, '../datas/vis_down/inputs/category.json')
-    DH.saveJson(geo_rep, '../datas/geo_rep/inputs/category.json')
-    DH.saveJson(geo_rep, '../datas/geo_down/inputs/upper_category.json')
-    DH.saveJson(geo_down, '../datas/geo_down/inputs/category.json')
+    if saved:
+        DH.saveJson(vis_down, '../datas/vis_down/inputs/category.json')
+        DH.saveJson(geo_rep, '../datas/geo_rep/inputs/category.json')
+        DH.saveJson(geo_rep, '../datas/geo_down/inputs/upper_category.json')
+        DH.saveJson(geo_down, '../datas/geo_down/inputs/category.json')
 
     return geo_rep, down_tag
 
