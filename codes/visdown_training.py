@@ -9,7 +9,7 @@ from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
 from mmm import DataHandler as DH
 from mmm import DatasetFlickr
 from mmm import MakeBPWeight
-from mmm import MultiLabelGCN
+from mmm import VisGCN
 from mmm import VisUtils as VU
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     }
 
     # modelの設定
-    model = MultiLabelGCN(
+    model = VisGCN(
         class_num=num_class,
         loss_function=MyLossFunction(),
         optimizer=optim.SGD,

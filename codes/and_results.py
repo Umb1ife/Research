@@ -6,7 +6,7 @@ from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
 from mmm import DataHandler as DH
 from mmm import GeotagGCN
 from mmm import GeoUtils as GU
-from mmm import MultiLabelGCN
+from mmm import VisGCN
 from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
@@ -120,7 +120,7 @@ def recognize(saved=True):
         'rep_weight': torch.load(vispath + 'rep_weight.pth'),
         'feature_dimension': 2048
     }
-    vis_model = MultiLabelGCN(
+    vis_model = VisGCN(
         class_num=len(vis_down),
         weight_decay=1e-4,
         network_setting=visgcn_settings,

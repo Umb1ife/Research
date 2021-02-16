@@ -13,7 +13,7 @@ def confusion_all_matrix(epoch=20, saved=True,
     import torch
     from mmm import DataHandler as DH
     from mmm import DatasetFlickr
-    from mmm import MultiLabelGCN
+    from mmm import VisGCN
     from mmm import VisUtils as VU
     from torchvision import transforms
     from tqdm import tqdm
@@ -73,7 +73,7 @@ def confusion_all_matrix(epoch=20, saved=True,
     }
 
     # modelの設定
-    model = MultiLabelGCN(
+    model = VisGCN(
         class_num=num_class,
         weight_decay=1e-4,
         fix_mask=mask,
@@ -354,7 +354,7 @@ def predict_sample(epoch=20, phase='train', saved=True, num=3, thr=0.5,
     from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
     from mmm import DataHandler as DH
     from mmm import DatasetFlickr
-    from mmm import MultiLabelGCN
+    from mmm import VisGCN
     from mmm import VisUtils as VU
     from PIL import Image
     from torchvision import transforms
@@ -425,7 +425,7 @@ def predict_sample(epoch=20, phase='train', saved=True, num=3, thr=0.5,
     }
 
     # modelの設定
-    model = MultiLabelGCN(
+    model = VisGCN(
         class_num=num_class,
         weight_decay=1e-4,
         # fix_mask=mask,

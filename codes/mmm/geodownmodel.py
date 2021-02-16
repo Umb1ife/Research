@@ -1,8 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-# from .datahandler import DataHandler
-from .gcnmodel import GCNLayer
+from .visdownmodel import GCNLayer
 from .geobasemodel import BlockRecognizer
 from .mymodel import MyBaseModel
 from torch.autograd import Variable
