@@ -1,3 +1,9 @@
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
+
+
 def plot_map(phase='train', refined=False, limited=None,
              saved=False, sort_std=False):
     import colorsys
@@ -93,7 +99,7 @@ def plot_map(phase='train', refined=False, limited=None,
 
 def visualize_classmap(weight='../datas/geo_down/outputs/learned_rep35_bp2/000weight.pth',
                        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
-                       limited=None):
+                       limited=None, saved=True):
     import colorsys
     import folium
     import numpy as np
@@ -209,6 +215,9 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned_rep35_bp2/000we
                     # fill_opacity=1,
                 ).add_to(_map)
                 radius += radius
+
+    if saved:
+        _map.save('../datas/geo_down/outputs/check/geodown_predictmap.html')
 
     return _map
 
@@ -952,17 +961,21 @@ def test():
 
 
 if __name__ == "__main__":
-    confusion_all_matrix(
-        epoch=20,
-        weight_path='../datas/geo_down/outputs/learned_rep32_nobp/',
-        outputs_path='../datas/geo_down/outputs/check/learned_rep32_nobp/'
-    )
-    confusion_all_matrix(
-        epoch=0,
-        weight_path='../datas/geo_down/outputs/learned_rep32_bp/',
-        outputs_path='../datas/geo_down/outputs/check/learned_rep32_nobp/'
-    )
+    # confusion_all_matrix(
+    #     epoch=20,
+    #     weight_path='../datas/geo_down/outputs/learned_rep32_nobp/',
+    #     outputs_path='../datas/geo_down/outputs/check/learned_rep32_nobp/'
+    # )
+    # confusion_all_matrix(
+    #     epoch=0,
+    #     weight_path='../datas/geo_down/outputs/learned_rep32_bp/',
+    #     outputs_path='../datas/geo_down/outputs/check/learned_rep32_nobp/'
+    # )
     # visualize_classmap()
+    visualize_classmap(
+        weight='../datas/geo_down/outputs/learned_rep32_bp/020weight.pth',
+        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5, limited=['bellagio']
+    )
     # plot_map()
     # visualize_training_data('bellagio')
     # visualize_oneclass_predict('bellagio', only_mistake=True)

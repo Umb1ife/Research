@@ -1,3 +1,9 @@
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
+
+
 def make_imlist(phase='train', saved=True):
     import os
     import torch

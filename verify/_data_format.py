@@ -1,7 +1,12 @@
+import os
 import pandas as pd
+import sys
+from tqdm import tqdm
+
+sys.path.append(os.path.join('..', 'codes'))
+
 from mmm import DataHandler as DH
 from mmm import VisUtils as VU
-from tqdm import tqdm
 
 
 def geodata_format():

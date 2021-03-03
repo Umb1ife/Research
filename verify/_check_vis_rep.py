@@ -1,3 +1,7 @@
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
 
 
 def confusion_all_matrix(epoch=200, saved=True,

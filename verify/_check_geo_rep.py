@@ -1,3 +1,9 @@
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
+
+
 def plot_map(phase='train', refined=False, limited=None,
              saved=False, sort_std=False):
     import colorsys
