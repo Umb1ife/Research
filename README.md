@@ -2,10 +2,10 @@
 
 ## Dependencies
 
-- Python 3.6.10
-- PyTorch 1.7.0
+- Python 3.8.5
+- PyTorch 1.8.0
 - NVIDIA Driver 455.32.00
-- CUDA 11.1
+- CUDA 11.1.1
 
 ## Setup the Environment
 
@@ -30,8 +30,8 @@
 
   First, install PROJ and GEOS because Cartopy requires.
 
-  - [PROJ](https://download.osgeo.org/proj/) 6.2.1
-  - [GEOS](http://download.osgeo.org/geos/) 3.8.1
+  - [PROJ](https://download.osgeo.org/proj/) 7.2.1
+  - [GEOS](http://download.osgeo.org/geos/) 3.9.0
 
   ```bash
   # install Cartopy & Shapely with the option "--no-binary"

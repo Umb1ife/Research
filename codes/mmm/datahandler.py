@@ -8,6 +8,39 @@ from PIL import Image
 
 
 class DatasetFlickr(data.Dataset):
+    def __init__(self, *, category=None, annotations=None,
+                 transform=None, image_path='.'):
+        '''
+        コンストラクタ
+        '''
+        self._transform = transform
+        self._imagelist = annotations
+        self._category2index = category
+        self._imagepath = image_path
+
+    def __len__(self):
+        return len(self._imagelist)
+
+    def __getitem__(self, index):
+        item = self._imagelist[index]
+        filename = item['file_name']
+        labels = sorted(item['labels'])
+
+        image = Image.open(
+            os.path.join(self._imagepath, filename)
+        ).convert('RGB')
+        image = image if self._transform is None else self._transform(image)
+
+        target = np.zeros(len(self._category2index), np.float32)
+        target[labels] = 1
+
+        return image, target, filename
+
+    def num_category(self):
+        return len(self._category2index)
+
+
+class _DatasetFlickr(data.Dataset):
     def __init__(self, *, filenames: dict, transform=None, image_path=''):
         '''
         コンストラクタ

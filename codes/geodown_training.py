@@ -41,25 +41,6 @@ parser.add_argument('--start_epoch', default=1, type=int, metavar='N')
 parser.add_argument('--workers', '-W', default=4, type=int, metavar='N')
 
 
-def limited_category(reps, lda='../datas/bases/local_df_area16_wocoth_new'):
-    gr = DH.loadPickle('geo_relationship.pickle', '../datas/bases')
-    vis_local = DH.loadJson('category', '../datas/gcn/inputs')
-    vis_rep = DH.loadJson('upper_category', '../datas/gcn/inputs')
-    local = set(vis_local) - set(vis_rep)
-
-    down = []
-    for item in reps:
-        down.extend(gr[item])
-
-    down = set(down) & set(local)
-
-    lda = DH.loadPickle(lda)
-    down = [item for item in down if len(lda['geo'][item]) > 0]
-    down = sorted(list(set(down) | set(reps)))
-
-    return {key: idx for idx, key in enumerate(down)}
-
-
 if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # 初期設定
@@ -82,25 +63,11 @@ if __name__ == "__main__":
 
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
-    # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    # category = limited_category(rep_category)
-    category = limited_category(
-        rep_category,
-        # lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    )
     num_class = len(category)
 
     # データの作成
-    geo_down_train = GU.down_dataset(
-        rep_category, category, 'train',
-        base_path=base_path
-        # base_path=input_path
-    )
-    geo_down_validate = GU.down_dataset(
-        rep_category, category, 'validate',
-        base_path=base_path
-        # base_path=input_path
-    )
+    geo_down_train = GU.down_dataset(rep_category, category, 'train')
+    geo_down_validate = GU.down_dataset(rep_category, category, 'validate')
     DH.savePickle(geo_down_train, 'geo_down_train', input_path)
     DH.savePickle(geo_down_validate, 'geo_down_validate', input_path)
 
@@ -143,45 +110,22 @@ if __name__ == "__main__":
     mask = GU.down_mask(rep_category, category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    # bp_weight = DH.loadNpy('backprop_weight', input_path) \
-    #     if args.load_backprop_weight else None
-    # bp_weight = bp_weight if bp_weight is not None \
-    #     else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
-    # bp_weight = np.power(bp_weight, 2)
+    bp_weight = DH.loadNpy('backprop_weight', input_path) \
+        if args.load_backprop_weight else None
+    bp_weight = bp_weight if bp_weight is not None \
+        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    bp_weight = np.power(bp_weight, 2)
 
     # -------------------------------------------------------------------------
-    # geo_down_train = GU.zerodata_augmentation(
-    #     geo_down_train,
-    #     numdata_sqrt_oneclass=5
-    # )
-    # train_dataset = DatasetGeotag(**kwargs_DF['train'])
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset,
-    #     shuffle=True,
-    #     batch_size=batchsize,
-    #     num_workers=numwork
-    # )
-
-    # if torch.cuda.is_available():
-    #     train_loader.pin_memory = True
-    #     cudnn.benchmark = True
-    # -------------------------------------------------------------------------
-
-    # 入力位置情報の正規化のためのパラメータ読み込み
-    mean, std = DH.loadNpy('normalize_params', input_path)
-
-    # 学習で用いるデータの設定や読み込み先
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
-        'filepaths': {
-            'relationship': base_path + 'geo_relationship.pickle',
-            'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            # 'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-            # 'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/100weight.pth'
-        },
-        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-        'BR_settings': {'fineness': (20, 20)},
+        'relationship': DH.loadPickle('geo_relationship.pickle', base_path),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned_50x25/400weight.pth'
+        ),
+        'BR_settings': {'fineness': (50, 25)}
     }
 
     # modelの設定
@@ -195,7 +139,7 @@ if __name__ == "__main__":
         fix_mask=mask,
         network_setting=gcn_settings,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        # backprop_weight=bp_weight
+        backprop_weight=bp_weight
     )
 
     # -------------------------------------------------------------------------
@@ -213,27 +157,34 @@ if __name__ == "__main__":
         log_dir=log_dir + '{0:%Y%m%d}_{0:%H%M}'.format(now)
     )
 
-    # 学習前
-    train_loss, train_recall, train_precision = model.validate(train_loader)
-    val_loss, val_recall, val_precision = model.validate(val_loader)
-    print('epoch: {0}'.format(0))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        train_loss, train_recall, train_precision
-    ))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        val_loss, val_recall, val_precision
-    ))
+    # 途中まで学習をしていたらここで読み込み
+    if args.start_epoch > 1:
+        model.loadmodel('{0:0=3}weight.pth'.format(args.start_epoch), mpath)
+        args.start_epoch += 1
+    else:
+        # 学習前
+        train_loss, train_recall, train_precision = model.validate(train_loader)
+        val_loss, val_recall, val_precision = model.validate(val_loader)
+        print('epoch: {0}'.format(0))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            train_loss, train_recall, train_precision
+        ))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            val_loss, val_recall, val_precision
+        ))
 
-    writer.add_scalar('loss', train_loss, 0)
-    writer.add_scalar('recall', train_recall, 0)
-    writer.add_scalar('precision', train_precision, 0)
-    model.savemodel('000weight.pth', mpath)
+        writer.add_scalar('loss', train_loss, 0)
+        writer.add_scalar('recall', train_recall, 0)
+        writer.add_scalar('precision', train_precision, 0)
+        model.savemodel('000weight.pth', mpath)
+
     print('------------------------------------------------------------------')
 
     # 学習
     for epoch in range(args.start_epoch, epochs + 1):
         train_loss, train_recall, train_precision = model.train(train_loader)
         val_loss, val_recall, val_precision = model.validate(val_loader)
+
         print('epoch: {0}'.format(epoch))
         print('loss: {0}, recall: {1}, precision: {2}'.format(
             train_loss, train_recall, train_precision

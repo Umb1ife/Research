@@ -4,7 +4,6 @@ import os
 import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-# from mmm import DataHandler as DH
 from mmm import DatasetGeobase
 from mmm import GeoBaseNet
 from mmm import GeoUtils as GU
@@ -56,7 +55,7 @@ if __name__ == "__main__":
     base_setting = {
         'x_range': (-175, -64),
         'y_range': (18, 71),
-        'fineness': (20, 20),
+        'fineness': (50, 25),
         'numdata_sqrt_oneclass': 32
     }
     base_train, (mean, std) = GU.base_dataset(**base_setting)
@@ -84,7 +83,7 @@ if __name__ == "__main__":
         learningrate=args.learning_rate,
         momentum=0.9,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        network_setting={'fineness': (20, 20), 'mean': mean, 'std': std},
+        network_setting={'fineness': (50, 25), 'mean': mean, 'std': std},
     )
 
     # -------------------------------------------------------------------------
@@ -94,10 +93,6 @@ if __name__ == "__main__":
     mpath = args.outputs_path if args.outputs_path[-1:] == '/' \
         else args.outputs_path + '/'
 
-    # 途中まで学習をしていたらここで読み込み
-    if args.start_epoch > 1:
-        model.loadmodel('{0:0=3}weight.pth'.format(args.start_epoch), mpath)
-
     # logの保存先 2020/01/01 15:30 -> log/20200101_1530に保存
     now = datetime.datetime.now()
     print('log -> {0:%Y%m%d}_{0:%H%M}'.format(now))
@@ -106,20 +101,26 @@ if __name__ == "__main__":
         log_dir=log_dir + '{0:%Y%m%d}_{0:%H%M}'.format(now)
     )
 
-    # 指定epoch数学習
-    model.savemodel('000weight.pth', mpath)
-    train_loss, train_recall, train_precision = model.validate(train_loader)
-    print('epoch: {0}'.format(0))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        train_loss, train_recall, train_precision
-    ))
+    # 途中まで学習をしていたらここで読み込み
+    if args.start_epoch > 1:
+        model.loadmodel('{0:0=3}weight.pth'.format(args.start_epoch), mpath)
+        args.start_epoch += 1
+    else:
+        # 学習前
+        model.savemodel('000weight.pth', mpath)
+        train_loss, train_recall, train_precision = model.validate(train_loader)
+        print('epoch: {0}'.format(0))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            train_loss, train_recall, train_precision
+        ))
 
-    writer.add_scalar('loss', train_loss, 0)
-    writer.add_scalar('recall', train_recall, 0)
-    writer.add_scalar('precision', train_precision, 0)
+        writer.add_scalar('loss', train_loss, 0)
+        writer.add_scalar('recall', train_recall, 0)
+        writer.add_scalar('precision', train_precision, 0)
+
     print('------------------------------------------------------------------')
 
-    # 学習
+    # 指定epoch数学習
     for epoch in range(args.start_epoch, epochs + 1):
         train_loss, train_recall, train_precision = model.train(train_loader)
 

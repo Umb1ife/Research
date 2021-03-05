@@ -1,8 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from .datahandler import DataHandler
-from .gcnmodel import GCNLayer
+from .visdownmodel import GCNLayer
 from .geobasemodel import BlockRecognizer
 from .mymodel import MyBaseModel
 from torch.autograd import Variable
@@ -10,8 +9,8 @@ from tqdm import tqdm
 
 
 class GCNModel(nn.Module):
-    def __init__(self, category, rep_category, filepaths={},
-                 base_weight_path='', BR_settings={}):
+    def __init__(self, category, rep_category, relationship, rep_weight,
+                 base_weight, BR_settings={}):
         '''
         コンストラクタ
         '''
@@ -19,18 +18,14 @@ class GCNModel(nn.Module):
         self._use_gpu = torch.cuda.is_available()
         self.num_classes = len(category)
 
-        relationship = DataHandler.loadPickle(filepaths['relationship'])
-        CNN_weight = torch.load(filepaths['learned_weight'])
-
         # H_0の作成
-        fc_weight = np.array(CNN_weight['fc.weight'].cpu(), dtype=np.float64)
+        fc_weight = np.array(rep_weight['fc.weight'].cpu(), dtype=np.float64)
         H_0 = np.zeros((self.num_classes, 100))
         for label, index in rep_category.items():
             H_0[category[label]] = fc_weight[index]
 
         # Aの作成
         A = np.zeros((self.num_classes, self.num_classes), dtype=int)
-        all_category_labels = list(category.keys())
 
         for label, _ in category.items():
             if label not in relationship:
@@ -39,12 +34,12 @@ class GCNModel(nn.Module):
             children = relationship[label]
             A[category[label]][category[label]] = 1
             for child in children:
-                if child in all_category_labels:
+                if child in category:
                     A[category[label]][category[child]] = 1
 
         # 特徴抽出の部分を定義
         self._before_fc = BlockRecognizer(**BR_settings)
-        self._before_fc.load_state_dict(torch.load(base_weight_path))
+        self._before_fc.load_state_dict(base_weight)
         self._mean = self._before_fc._mean
         self._std = self._before_fc._std
         self._before_fc = torch.nn.Sequential(*(

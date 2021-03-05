@@ -5,114 +5,147 @@ from tqdm import tqdm
 
 class VisUtils:
     @staticmethod
-    def rep_dataset(category, phase='train', base_path='../datas/bases/'):
+    def rep_anno(category, phase='train', base_path='../datas/bases/'):
         print('preparing dataset: {0} ...'.format(phase))
-        lda = DH.loadPickle('local_df_area16_wocoth_new.pickle', base_path)
-        locates = 'geo' if phase == 'train' else 'geo_val'
-        locates = list(lda[locates])
-        temp = [item for gl in locates for item in gl]
-        mean = np.mean(temp, axis=0)
-        std = np.std(temp, axis=0)
+        t2f = DH.loadJson('rep_tag2file', base_path)
+        t2f = t2f[phase]
+        photo2tag = {}
+        for cat in category:
+            for pf in t2f[cat]['filename']:
+                if pf in photo2tag:
+                    photo2tag[pf].append(cat)
+                else:
+                    photo2tag[pf] = [cat]
 
-        locates = [item if len(item) >= 1 else [] for item in locates]
-        tags = list(lda.index)
-        temp_dict = {key: [] for item in locates for key in item}
-        for item, tag in zip(locates, tags):
-            for locate in item:
-                temp_dict[locate].append(tag)
+        anno = [
+            {'file_name': key, 'labels': [category[tag] for tag in val]}
+            for key, val in tqdm(photo2tag.items())
+        ]
 
-        for key, val in temp_dict.items():
-            temp_dict[key] = sorted(list(set(val)))
-
-        locate_tags_dictlist = []
-        for key, val in tqdm(temp_dict.items()):
-            temp = [category[label] for label in val if label in category]
-            if temp:
-                locate_tags_dictlist.append({
-                    'labels': temp,
-                    'locate': list(key)
-                })
-
-        return locate_tags_dictlist, (mean, std)
+        return anno
 
     @staticmethod
-    def rep_mask(category, sim_thr=5, reverse=True, saved=True,
-                 save_path='../datas/geo_rep/inputs/',
+    def rep_mask(category, sim_thr=0.4, saved=True,
+                 save_path='../datas/vis_rep/inputs/',
                  base_path='../datas/bases/'):
         print('calculating mask ...')
+        all_sim = DH.loadJson(base_path + 'vis_sim_dict')
         repsnum = len(category)
-        _mask = np.zeros((repsnum, repsnum), int)
-        sim_dict = DH.loadPickle('geo_rep_simdict', base_path)
-
-        for tag1 in category:
+        mask = np.zeros((repsnum, repsnum), int)
+        for tag1 in tqdm(category):
             for tag2 in category:
                 if tag1 == tag2:
                     continue
 
-                sim = sim_dict[tag2][tag1] if reverse else sim_dict[tag1][tag2]
-                if sim < sim_thr:
-                    _mask[category[tag1]][category[tag2]] = 1
+                if all_sim[tag1][tag2] >= sim_thr:
+                    mask[category[tag1]][category[tag2]] = 1
 
         if saved:
-            DH.savePickle(_mask, 'mask_{0}'.format(sim_thr), save_path)
+            DH.savePickle(
+                mask, '{0:0=2}.pickle'.format(int(sim_thr * 10)), save_path
+            )
 
-        return _mask
+        return mask
 
     @staticmethod
-    def down_dataset(rep_category, local_category, phase='train',
-                     base_path='../datas/bases/'):
+    def down_anno(category, rep_category, phase='train',
+                  base_path='../datas/bases/'):
         print('preparing dataset: {0} ...'.format(phase))
-        lda = DH.loadPickle('local_df_area16_wocoth_new.pickle', base_path)
-        down_category = sorted(list(set(local_category) - set(rep_category)))
+        t2f = DH.loadJson('down_tag2file', base_path)
+        t2f = t2f[phase]
+        down = set(category) - set(rep_category)
+        photo2tag = {}
+        for cat in down:
+            for pf in t2f[cat]['filename']:
+                if pf in photo2tag:
+                    photo2tag[pf].append(cat)
+                else:
+                    photo2tag[pf] = [cat]
 
-        # datas = lda
-        locates = 'geo' if phase == 'train' else 'geo_val'
-        locates = list(lda[locates])
+        anno = [
+            {'file_name': key, 'labels': [category[tag] for tag in val]}
+            for key, val in tqdm(photo2tag.items())
+        ]
 
-        locates = [item if len(item) >= 1 else [] for item in locates]
-        tags = list(lda.index)
-        temp_dict = {key: [] for item in locates for key in item}
-        for item, tag in zip(locates, tags):
-            for locate in item:
-                temp_dict[locate].append(tag)
-
-        for key, val in temp_dict.items():
-            temp_dict[key] = sorted(list(set(val)))
-
-        tags_dict = {key: val for val, key in enumerate(local_category)}
-
-        locate_tags_dictlist = []
-        for key, val in tqdm(temp_dict.items()):
-            temp = [tags_dict[label] for label in val if label in down_category]
-            if temp:
-                locate_tags_dictlist.append({
-                    'labels': temp,
-                    'locate': list(key)
-                })
-
-        return locate_tags_dictlist
+        return anno
 
     @staticmethod
-    def down_mask(rep_category, local_category, sim_thr=5, reverse=True,
-                  saved=True, save_path='../datas/geo_down/inputs/',
+    def down_mask(rep_category, local_category, sim_thr=0.4,
+                  saved=True, save_path='../datas/vis_down/inputs/',
                   base_path='../datas/bases/'):
         print('calculating mask ...')
-        geo_category = {key: idx for idx, key in enumerate(local_category)}
-        down_category = sorted(list(set(local_category) - set(rep_category)))
-        num_classes = len(local_category)
-        _mask = np.zeros((num_classes, num_classes), int)
+        all_sim = DH.loadJson(base_path + 'vis_sim_dict')
+        gsp_dict = DH.loadPickle('geospatial_df_area16_wocoth', base_path)
+        gsp_dict = gsp_dict.to_dict('index')
+        rep_dict = DH.loadPickle('rep_df_area16_wocoth', base_path)
+        rep_dict = rep_dict.to_dict('index')
 
-        sim_dict = DH.loadPickle('geo_down_simdict', base_path)
-        for tag1 in down_category:
-            for tag2 in down_category:
+        comb_dict = {key: [] for key in local_category}
+        for tag1 in local_category:
+            for tag2 in local_category:
                 if tag1 == tag2:
                     continue
 
-                sim = sim_dict[tag2][tag1] if reverse else sim_dict[tag1][tag2]
-                if sim < sim_thr:
-                    _mask[geo_category[tag1]][geo_category[tag2]] = 1
+                if all_sim[tag1][tag2] >= sim_thr:
+                    comb_dict[tag1].append(tag2)
+
+        # ---------------------------------------------------------------------
+        lc = local_category
+        down = sorted(list(set(lc) - set(rep_category)))
+        tagsnum = len(lc)
+        gspkeys = set(list(gsp_dict.keys()))
+        lcset = set(lc)
+        repset = set(rep_category)
+
+        mask = np.zeros((tagsnum, tagsnum), int)
+        for tag in tqdm(down):
+            flgs = {tag}
+            prev = set()
+            checked = set()
+            while flgs:
+                for item in flgs:
+                    checked.add(item)
+                    prev = prev | set(gsp_dict[item]['representative'])
+
+                prev = prev & lcset
+                flgs = (prev - checked) & gspkeys
+
+            exprev = set()
+            for ptag in prev:
+                if ptag in comb_dict:
+                    exprev = exprev | (set(comb_dict[ptag]) & repset)
+
+            prev = prev | exprev
+
+            for ptag in prev:
+                mask[lc[tag]][lc[ptag]] = 1
+                for ctag in comb_dict[ptag]:
+                    mask[lc[tag]][lc[ctag]] = 1
+
+                temp = set(rep_dict[ptag]['down']) & lcset
+                for ttag in temp:
+                    if ttag != tag:
+                        mask[lc[tag]][lc[ttag]] = 1
+
+                    if ttag in rep_dict:
+                        ttagdown = set(rep_dict[ttag]['down']) & lcset
+                        for tdtag in ttagdown:
+                            if tdtag != tag:
+                                mask[lc[tag]][lc[tdtag]] = 1
+
+            if tag in rep_dict:
+                for rtag in rep_dict[tag]['down']:
+                    if rtag in lcset and rtag != tag:
+                        mask[lc[tag]][lc[rtag]] = 1
+
+            for ctag in comb_dict[tag]:
+                mask[lc[tag]][lc[ctag]] = 1
+
+        np.fill_diagonal(mask, 0)
 
         if saved:
-            DH.savePickle(_mask, 'mask_{0}'.format(sim_thr), save_path)
+            DH.savePickle(
+                mask, '{0:0=2}.pickle'.format(int(sim_thr * 10)), save_path
+            )
 
-        return _mask
+        return mask

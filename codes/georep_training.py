@@ -56,7 +56,6 @@ if __name__ == "__main__":
     input_path = args.inputs_path if args.inputs_path[-1:] == '/' \
         else args.inputs_path + '/'
     category = DH.loadJson('category.json', input_path)
-    # category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
     num_class = len(category)
 
     # データの作成
@@ -64,10 +63,6 @@ if __name__ == "__main__":
     geo_rep_validate, _ = GU.rep_dataset(category, 'validate')
     DH.savePickle(geo_rep_train, 'geo_rep_train', input_path)
     DH.savePickle(geo_rep_validate, 'geo_rep_validate', input_path)
-    # DH.saveNpy((mean, std), 'normalize_params', input_path)
-    zerolength = len(geo_rep_train)
-    geo_rep_train = GU.zerodata_augmentation(geo_rep_train)
-    zerolength = len(geo_rep_train) - zerolength
 
     kwargs_DF = {
         'train': {
@@ -108,25 +103,43 @@ if __name__ == "__main__":
     mask = GU.rep_mask(category) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
-    # bp_weight = DH.loadNpy('backprop_weight', input_path) \
-    #     if args.load_backprop_weight else None
-    # bp_weight = bp_weight if bp_weight is not None \
-    #     else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    bp_weight = DH.loadNpy('backprop_weight', input_path) \
+        if args.load_backprop_weight else None
+    bp_weight = bp_weight if bp_weight is not None \
+        else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    # import numpy as np
+    # bp_weight = np.power(bp_weight, 2)
+
+    # -------------------------------------------------------------------------
+    geo_rep_train = GU.zerodata_augmentation(
+        geo_rep_train, fineness=(50, 25), numdata_sqrt_oneclass=5
+    )
+    train_dataset = DatasetGeotag(**kwargs_DF['train'])
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        shuffle=True,
+        batch_size=batchsize,
+        num_workers=numwork
+    )
+
+    if torch.cuda.is_available():
+        train_loader.pin_memory = True
+        cudnn.benchmark = True
+    # -------------------------------------------------------------------------
 
     model = RepGeoClassifier(
         class_num=num_class,
-        # loss_function=MyLossFunction(reduction='none'),
-        loss_function=MyLossFunction(),
+        loss_function=MyLossFunction(reduction='none'),
         optimizer=optim.SGD,
         learningrate=args.learning_rate,
         momentum=0.9,
         fix_mask=mask,
         multigpu=True if len(args.device_ids.split(',')) > 1 else False,
-        # backprop_weight=bp_weight,
+        backprop_weight=bp_weight,
         network_setting={
             'num_classes': num_class,
-            'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-            'BR_settings': {'fineness': (20, 20)}
+            'base_weight_path': '../datas/geo_base/outputs/learned_50x25/400weight.pth',
+            'BR_settings': {'fineness': (50, 25)}
         }
     )
 
@@ -137,10 +150,6 @@ if __name__ == "__main__":
     mpath = args.outputs_path if args.outputs_path[-1:] == '/' \
         else args.outputs_path + '/'
 
-    # 途中まで学習をしていたらここで読み込み
-    if args.start_epoch > 1:
-        model.loadmodel('{0:0=3}weight.pth'.format(args.start_epoch), mpath)
-
     # logの保存先 2020/01/01 15:30 -> log/20200101_1530に保存
     now = datetime.datetime.now()
     print('log -> {0:%Y%m%d}_{0:%H%M}'.format(now))
@@ -149,24 +158,30 @@ if __name__ == "__main__":
         log_dir=log_dir + '{0:%Y%m%d}_{0:%H%M}'.format(now)
     )
 
-    # 指定epoch数学習
-    train_loss, train_recall, train_precision = model.validate(train_loader)
-    val_loss, val_recall, val_precision = model.validate(val_loader)
-    print('epoch: {0}'.format(0))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        train_loss, train_recall, train_precision
-    ))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        val_loss, val_recall, val_precision
-    ))
+    # 途中まで学習をしていたらここで読み込み
+    if args.start_epoch > 1:
+        model.loadmodel('{0:0=3}weight.pth'.format(args.start_epoch), mpath)
+        args.start_epoch += 1
+    else:
+        # 学習前
+        train_loss, train_recall, train_precision = model.validate(train_loader)
+        val_loss, val_recall, val_precision = model.validate(val_loader)
+        print('epoch: {0}'.format(0))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            train_loss, train_recall, train_precision
+        ))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            val_loss, val_recall, val_precision
+        ))
 
-    writer.add_scalar('loss', train_loss, 0)
-    writer.add_scalar('recall', train_recall, 0)
-    writer.add_scalar('precision', train_precision, 0)
-    model.savemodel('000weight.pth', mpath)
+        writer.add_scalar('loss', train_loss, 0)
+        writer.add_scalar('recall', train_recall, 0)
+        writer.add_scalar('precision', train_precision, 0)
+        model.savemodel('000weight.pth', mpath)
+
     print('------------------------------------------------------------------')
 
-    # 学習
+    # 指定epoch数学習
     for epoch in range(args.start_epoch, epochs + 1):
         train_loss, train_recall, train_precision = model.train(train_loader)
         val_loss, val_recall, val_precision = model.validate(val_loader)
@@ -180,22 +195,9 @@ if __name__ == "__main__":
         ))
         print('--------------------------------------------------------------')
 
-        writer.add_scalars(
-            'loss', {'train_loss': train_loss, 'val_loss': val_loss}, epoch
-        )
-        writer.add_scalars(
-            'recall',
-            {'train_recall': train_recall, 'val_recall': val_recall},
-            epoch
-        )
-        writer.add_scalars(
-            'precision',
-            {
-                'train_precision': train_precision,
-                'val_precision': val_precision
-            },
-            epoch
-        )
+        writer.add_scalar('loss', train_loss, epoch)
+        writer.add_scalar('recall', train_recall, epoch)
+        writer.add_scalar('precision', train_precision, epoch)
 
         # 5epochごとにモデルを保存
         if (epoch) % 5 == 0:

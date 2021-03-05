@@ -1,3 +1,9 @@
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
+
+
 def plot_map():
     import colorsys
     import folium

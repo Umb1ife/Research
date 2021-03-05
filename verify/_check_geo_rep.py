@@ -1,4 +1,11 @@
-def plot_map(phase='train', refined=False, limited=None, sort_std=False):
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
+
+
+def plot_map(phase='train', refined=False, limited=None,
+             saved=False, sort_std=False):
     import colorsys
     import folium
     import numpy as np
@@ -6,18 +13,9 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
     from mmm import GeoUtils as GU
 
     input_path = '../datas/geo_rep/inputs/'
-    # datas = DH.loadPickle('geo_rep_train.pickle', input_path)
     category = DH.loadJson('category.json', input_path)
-    # mean, std = DH.loadNpy('normalize_params.npy', input_path)
-    # -------------------------------------------------------------------------
-
-    datas, (mean, std) = GU.rep_dataset(
-        category, phase,
-        # base_path='../datas/geo_down/inputs/'
-        base_path=input_path
-    )
+    datas, (mean, std) = GU.rep_dataset(category, phase)
     category = list(category.keys())
-    # class_num = len(category)
 
     if sort_std:
         groups = {key: [] for key in category}
@@ -71,16 +69,20 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
                 location=locate,
                 popup=popup,
                 color=RGB_tuples[convert_idx[lbl]],
-                fill=False,
+                fill=True,
+                fill_opacity=1
             ).add_to(_map)
-            radius *= 2
+            radius += radius
+
+    if saved:
+        _map.save('../datas/geo_rep/outputs/check/georep_train.html')
 
     return _map
 
 
-def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
-                       lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
-                       limited=None):
+def classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
+             lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
+             limited=None, saved=False, opacity=0.3, thr=0.5):
     import colorsys
     import folium
     import numpy as np
@@ -93,17 +95,9 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     # -------------------------------------------------------------------------
     # load classifier
     category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
-    # category = {'lasvegas': 0, 'newyorkcity': 1}
-    # mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
-    # -------------------------------------------------------------------------
-
     category = list(category.keys())
     num_class = len(category)
-    # model = RepGeoClassifier(
-    #     class_num=num_class,
-    #     loss_function=MyLossFunction(reduction='none'),
-    #     network_setting={'class_num': num_class, 'mean': mean, 'std': std},
-    # )
+
     model = RepGeoClassifier(
         class_num=num_class,
         loss_function=MyLossFunction(reduction='none'),
@@ -141,7 +135,97 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
 
     color_num = len(convert_idx)
     HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
-    # HSV_tuples = [(x * 1.0 / num_class, 1.0, 1.0) for x in range(num_class)]
+    RGB_tuples = [
+        '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
+        for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
+    ]
+
+    # -------------------------------------------------------------------------
+    # plot
+    thr = min(max(0, thr), 0.999)
+    for lat in tqdm(lats):
+        for lng in lngs:
+            labels = model.predict(torch.Tensor([lng, lat]))
+            prd = model.predict(torch.Tensor([lng, lat]))
+            labels = np.where(prd > thr)[0]
+            prd = (prd - thr) / (1 - thr)
+            radius = 30
+            for lbl in labels:
+                popup = category[lbl]
+                if popup not in limited:
+                    continue
+
+                folium.Circle(
+                    radius=radius,
+                    location=[lat, lng],
+                    popup=popup,
+                    color=RGB_tuples[convert_idx[lbl]],
+                    opacity=prd[lbl],
+                    fill=False,
+                ).add_to(_map)
+                radius *= 2
+
+    if saved:
+        _map.save('../datas/geo_rep/outputs/check/georep_classmap.html')
+
+    return _map
+
+
+def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
+                       lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
+                       limited=None, saved=False, opacity=0.3):
+    import colorsys
+    import folium
+    import numpy as np
+    import torch
+    from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
+    from mmm import DataHandler as DH
+    from mmm import RepGeoClassifier
+    from tqdm import tqdm
+
+    # -------------------------------------------------------------------------
+    # load classifier
+    category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
+    category = list(category.keys())
+    num_class = len(category)
+
+    model = RepGeoClassifier(
+        class_num=num_class,
+        loss_function=MyLossFunction(reduction='none'),
+        network_setting={
+            'num_classes': num_class,
+            'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
+            'BR_settings': {'fineness': (20, 20)}
+        }
+    )
+    model.loadmodel(weight)
+
+    # -------------------------------------------------------------------------
+    # make points
+    lat_range, lng_range = sorted(lat_range), sorted(lng_range)
+    lats = np.arange(lat_range[0], lat_range[1], unit)
+    lngs = np.arange(lng_range[0], lng_range[1], unit)
+
+    # -------------------------------------------------------------------------
+    # make base map
+    _map = folium.Map(
+        location=[40.0, -100.0],
+        zoom_start=4,
+        tiles='Stamen Terrain'
+    )
+
+    # make colors list
+    limited = category[:] if limited is None else limited
+    limited = set(limited) & set(category)
+    convert_idx = {}
+    cnt = 0
+    for idx, cat in enumerate(category):
+        if cat in limited:
+            convert_idx[idx] = cnt
+            cnt += 1
+
+    color_num = len(convert_idx)
+    HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
     RGB_tuples = [
         '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
@@ -151,7 +235,6 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     # plot
     for lat in tqdm(lats):
         for lng in lngs:
-            # labels = model.predict(torch.Tensor([30, -80]), labeling=True)
             labels = model.predict(torch.Tensor([lng, lat]), labeling=True)
             labels = np.where(labels > 0)[0]
             radius = 150
@@ -165,9 +248,14 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
                     location=[lat, lng],
                     popup=popup,
                     color=RGB_tuples[convert_idx[lbl]],
-                    fill=False
+                    opacity=opacity,
+                    fill=True,
+                    fill_opacity=opacity,
                 ).add_to(_map)
                 radius *= 2
+
+    if saved:
+        _map.save('../datas/geo_rep/outputs/check/georep_classmap.html')
 
     return _map
 
@@ -230,10 +318,7 @@ def confusion_all_matrix(epoch=200, saved=True,
             'BR_settings': {'fineness': (20, 20)}
         }
     )
-
-    if epoch > 0:
-        model.loadmodel('{0:0=3}weight'.format(epoch),
-                        '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/')
+    model.loadmodel('../datas/geo_down/inputs/weights/nobp_za10.pth')
 
     def _update_backprop_weight(labels, fmask):
         '''
@@ -338,16 +423,20 @@ def confusion_all_matrix(epoch=200, saved=True,
 
 
 if __name__ == "__main__":
-    # confusion_all_matrix(
-    #     epoch=200,
-    #     outputs_path='../datas/geo_rep/outputs/check/base/'
-    # )
+    confusion_all_matrix(
+        epoch=200,
+        outputs_path='../datas/geo_rep/outputs/check/rep32_nobp/'
+    )
     # confusion_all_matrix(
     #     epoch=0,
-    #     outputs_path='../datas/geo_rep/outputs/check/base/'
+    #     outputs_path='../datas/geo_rep/outputs/check/last/'
     # )
     # visualize_classmap(weight='../datas/geo_rep/outputs/learned_small/010weight.pth')
-    # visualize_classmap()
-    # plot_map()
+    # classmap(
+    #     weight='../datas/geo_down/inputs/rep_weight.pth',
+    #     unit=0.1, thr=0.7, saved=True
+    # )
+    # visualize_classmap(unit=0.5, saved=False)
+    # plot_map(saved=True)
 
     print('finish.')

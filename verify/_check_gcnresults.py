@@ -1,3 +1,9 @@
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
+
+
 def make_imlist(phase='train', saved=True):
     import os
     import torch
@@ -87,7 +93,7 @@ def get_predicts(phase='train', threshold=0.4, check_epoch=1,
     from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
     from mmm import DataHandler as DH
     from mmm import DatasetFlickr
-    from mmm import MultiLabelGCN
+    from mmm import VisGCN
     from PIL import Image
     from torchvision import transforms
 
@@ -170,7 +176,7 @@ def get_predicts(phase='train', threshold=0.4, check_epoch=1,
     }
 
     # modelの設定
-    model = MultiLabelGCN(
+    model = VisGCN(
         class_num=num_class,
         loss_function=MyLossFunction(),
         optimizer=optim.SGD,
@@ -366,7 +372,7 @@ def class_precision(threshold=0.4, epoch=20):
     import pickle
     from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
     from mmm import DataHandler as DH
-    from mmm import MultiLabelGCN
+    from mmm import VisGCN
     from tqdm import tqdm
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
@@ -394,7 +400,7 @@ def class_precision(threshold=0.4, epoch=20):
         },
         'feature_dimension': 2048
     }
-    model = MultiLabelGCN(
+    model = VisGCN(
         class_num=3100,
         loss_function=MyLossFunction(),
         learningrate=0.1,
@@ -492,7 +498,7 @@ def score_unknown(threshold=0.4, epoch=20):
     import pickle
     from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
     from mmm import DataHandler as DH
-    from mmm import MultiLabelGCN
+    from mmm import VisGCN
     from tqdm import tqdm
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
@@ -520,7 +526,7 @@ def score_unknown(threshold=0.4, epoch=20):
         },
         'feature_dimension': 2048
     }
-    model = MultiLabelGCN(
+    model = VisGCN(
         class_num=3100,
         loss_function=MyLossFunction(),
         learningrate=0.1,
@@ -655,7 +661,7 @@ def confusion_all_matrix(threshold=0.4, epoch=20, saved=False):
     import os
     from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
     from mmm import DataHandler as DH
-    from mmm import MultiLabelGCN
+    from mmm import VisGCN
     from tqdm import tqdm
 
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
@@ -685,7 +691,7 @@ def confusion_all_matrix(threshold=0.4, epoch=20, saved=False):
         },
         'feature_dimension': 2048
     }
-    model = MultiLabelGCN(
+    model = VisGCN(
         class_num=3100,
         loss_function=MyLossFunction(),
         learningrate=0.1,

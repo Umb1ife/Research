@@ -1,25 +1,21 @@
-def plot_map(phase='train', refined=False, limited=None, sort_std=False):
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
+
+
+def plot_map(phase='train', limited=None, saved=False, sort_std=False):
     import colorsys
     import folium
     import numpy as np
     from mmm import DataHandler as DH
     from mmm import GeoUtils as GU
-    from geodown_training import limited_category
     from tqdm import tqdm
 
     input_path = '../datas/geo_down/inputs/'
-    # datas = DH.loadPickle('geo_down_train.pickle', input_path)
     rep_category = DH.loadJson('upper_category.json', input_path)
-    # mean, std = DH.loadNpy('normalize_params.npy', input_path)
-    # -------------------------------------------------------------------------
-    # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    category = limited_category(rep_category)
-    # class_num = len(category)
-    datas = GU.down_dataset(
-        rep_category, category, phase,
-        # base_path='../datas/geo_down/inputs/'
-        base_path='../datas/bases/'
-    )
+    category = DH.loadJson('category.json', input_path)
+    datas = GU.down_dataset(rep_category, category, phase)
     category = list(category.keys())
 
     if sort_std:
@@ -74,52 +70,44 @@ def plot_map(phase='train', refined=False, limited=None, sort_std=False):
                 location=locate,
                 popup=popup,
                 color=RGB_tuples[convert_idx[lbl]],
-                fill=False,
+                fill=True,
+                fill_opacity=1
             ).add_to(_map)
-            radius *= 2
+
+    if saved:
+        _map.save(
+            '../datas/geo_down/outputs/check/geodown_{0}.html'.format(phase)
+        )
 
     return _map
 
 
-def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
+def visualize_classmap(weight='../datas/geo_down/outputs/learned/020weight.pth',
                        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
-                       limited=None):
+                       limited=None, saved=True):
     import colorsys
     import folium
     import numpy as np
     import torch
-    # from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
-    from geodown_training import limited_category
+    from mmm import DataHandler as DH
     from mmm import GeotagGCN
     from tqdm import tqdm
 
     # -------------------------------------------------------------------------
     # load classifier
-    from mmm import DataHandler as DH
     rep_category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
-    # mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
-    # -------------------------------------------------------------------------
-
-    # rep_category = {'lasvegas': 0, 'newyorkcity': 1}
-    # category = limited_category(rep_category)
-    # category = {'bellagio': 0, 'grandcentralstation': 1, 'lasvegas': 2,
-    #             'newyorkcity': 3}
-    category = limited_category(
-        rep_category,
-        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    )
+    category = DH.loadJson('category.json', '../datas/geo_down/inputs')
     num_class = len(category)
 
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
-        'filepaths': {
-            'relationship': '../datas/bases/geo_relationship.pickle',
-            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-        },
-        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-        'BR_settings': {'fineness': (20, 20)},
+        'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned_50x25/400weight.pth'
+        ),
+        'BR_settings': {'fineness': (50, 25)}
     }
 
     model = GeotagGCN(
@@ -157,7 +145,6 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
 
     color_num = len(convert_idx)
     HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
-    # HSV_tuples = [(x * 1.0 / num_class, 1.0, 1.0) for x in range(num_class)]
     RGB_tuples = [
         '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
@@ -181,9 +168,13 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/000weight.pth',
                     location=[lat, lng],
                     popup=popup,
                     color=RGB_tuples[convert_idx[lbl]],
-                    fill=False
+                    opacity=0.5,
+                    fill=False,
                 ).add_to(_map)
                 radius += radius
+
+    if saved:
+        _map.save('../datas/geo_down/outputs/check/geodown_predictmap.html')
 
     return _map
 
@@ -196,8 +187,7 @@ def visualize_training_data(tag, phase='train', limited=[-1, 0, 1]):
     import folium
     import numpy as np
     import torch
-    from geodown_training import limited_category
-    # from mmm import DataHandler as DH
+    from mmm import DataHandler as DH
     from mmm import DatasetGeotag
     from mmm import GeoUtils as GU
     from tqdm import tqdm
@@ -205,25 +195,15 @@ def visualize_training_data(tag, phase='train', limited=[-1, 0, 1]):
     # -------------------------------------------------------------------------
     # データの読み込み
     input_path = '../datas/geo_down/inputs/'
-    # rep_category = DH.loadJson('upper_category.json', input_path)
-    # category = DH.loadJson('category.json', input_path)
-    rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    category = limited_category(rep_category)
+    rep_category = DH.loadJson('upper_category.json', input_path)
+    category = DH.loadJson('category.json', input_path)
     num_class = len(category)
     if tag not in category:
         raise Exception
     tag_idx = category[tag]
 
-    geo_down_train = GU.down_dataset(
-        rep_category, category, 'train',
-        # base_path=base_path
-        base_path=input_path
-    )
-    geo_down_validate = GU.down_dataset(
-        rep_category, category, 'validate',
-        # base_path=base_path
-        base_path=input_path
-    )
+    geo_down_train = GU.down_dataset(rep_category, category, 'train')
+    geo_down_validate = GU.down_dataset(rep_category, category, 'validate')
 
     kwargs_DF = {
         'train': {
@@ -327,12 +307,9 @@ def visualize_oneclass_predict(tag, phase='train', epoch=20,
     '''
     あるクラスについて学習データを正例(1)・unknown(-1)・負例(0)に振り分けプロット
     '''
-    # import colorsys
     import folium
     import numpy as np
     import torch
-    # from folium.plugins import BeautifyIcon
-    from geodown_training import limited_category
     from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
     from mmm import DataHandler as DH
     from mmm import DatasetGeotag
@@ -343,28 +320,18 @@ def visualize_oneclass_predict(tag, phase='train', epoch=20,
     # -------------------------------------------------------------------------
     # load classifier
     rep_category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
-    mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
-    category = limited_category(
-        rep_category,
-        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    )
+    category = DH.loadJson('category.json', '../datas/geo_down/inputs')
     num_class = len(category)
-    base_path = '../datas/bases/'
-    input_path = '../datas/geo_down/inputs/'
 
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
-        'filepaths': {
-            # 'relationship': '../datas/bases/geo_relationship.pickle',
-            'relationship': base_path + 'geo_relationship.pickle',
-            # 'learned_weight': '../datas/geo_rep/outputs/learned_small/010weight.pth'
-            'learned_weight': input_path + '200weight.pth'
-        },
-        'feature_dimension': 30,
-        'simplegeonet_settings': {
-            'class_num': len(rep_category), 'mean': mean, 'std': std
-        }
+        'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned_50x25/400weight.pth'
+        ),
+        'BR_settings': {'fineness': (50, 25)}
     }
 
     model = GeotagGCN(
@@ -381,16 +348,8 @@ def visualize_oneclass_predict(tag, phase='train', epoch=20,
         raise Exception
     tag_idx = category[tag]
 
-    geo_down_train = GU.down_dataset(
-        rep_category, category, 'train',
-        # base_path=base_path
-        base_path=input_path
-    )
-    geo_down_validate = GU.down_dataset(
-        rep_category, category, 'validate',
-        # base_path=base_path
-        base_path=input_path
-    )
+    geo_down_train = GU.down_dataset(rep_category, category, 'train')
+    geo_down_validate = GU.down_dataset(rep_category, category, 'validate')
 
     kwargs_DF = {
         'train': {
@@ -501,206 +460,6 @@ def visualize_oneclass_predict(tag, phase='train', epoch=20,
     return _map
 
 
-def _visualize_oneclass_predict(tag, phase='train', epoch=20,
-                                weight_path='../datas/geo_down/outputs/learned',
-                                limited=[0, 1], only_mistake=False):
-    '''
-    あるクラスについて学習データを正例(1)・unknown(-1)・負例(0)に振り分けプロット
-    '''
-    # import colorsys
-    import folium
-    import numpy as np
-    import torch
-    from folium.plugins import BeautifyIcon
-    from geodown_training import limited_category
-    from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
-    from mmm import DataHandler as DH
-    from mmm import DatasetGeotag
-    from mmm import GeotagGCN
-    from mmm import GeoUtils as GU
-    from tqdm import tqdm
-
-    # -------------------------------------------------------------------------
-    # load classifier
-    rep_category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
-    mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
-    category = limited_category(
-        rep_category,
-        lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    )
-    num_class = len(category)
-    base_path = '../datas/bases/'
-    input_path = '../datas/geo_down/inputs/'
-
-    gcn_settings = {
-        'category': category,
-        'rep_category': rep_category,
-        'filepaths': {
-            # 'relationship': '../datas/bases/geo_relationship.pickle',
-            'relationship': base_path + 'geo_relationship.pickle',
-            # 'learned_weight': '../datas/geo_rep/outputs/learned_small/010weight.pth'
-            'learned_weight': input_path + '200weight.pth'
-        },
-        'feature_dimension': 30,
-        'simplegeonet_settings': {
-            'class_num': len(rep_category), 'mean': mean, 'std': std
-        }
-    }
-
-    model = GeotagGCN(
-        class_num=num_class,
-        loss_function=MyLossFunction(reduction='none'),
-        weight_decay=1e-4,
-        network_setting=gcn_settings,
-    )
-    model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
-
-    # -------------------------------------------------------------------------
-    # データの読み込み
-    if tag not in set(category) - set(rep_category):
-        raise Exception
-    tag_idx = category[tag]
-
-    geo_down_train = GU.down_dataset(
-        rep_category, category, 'train',
-        # base_path=base_path
-        base_path=input_path
-    )
-    geo_down_validate = GU.down_dataset(
-        rep_category, category, 'validate',
-        # base_path=base_path
-        base_path=input_path
-    )
-
-    kwargs_DF = {
-        'train': {
-            'class_num': num_class,
-            'transform': torch.tensor,
-            'data': geo_down_train
-        },
-        'validate': {
-            'class_num': num_class,
-            'transform': torch.tensor,
-            'data': geo_down_validate
-        },
-    }
-
-    dataset = DatasetGeotag(**kwargs_DF[phase])
-    loader = torch.utils.data.DataLoader(
-        dataset,
-        shuffle=False,
-        batch_size=1,
-        num_workers=4
-    )
-
-    mask = GU.down_mask(rep_category, category, sim_thr=5, saved=False)
-
-    # -------------------------------------------------------------------------
-    def _fixed_mask(labels, fmask):
-        '''
-        誤差を伝播させない部分を指定するマスクの生成
-        '''
-        labels = labels.data.cpu().numpy()
-        labels_y, labels_x = np.where(labels == 1)
-        labels_y = np.append(labels_y, labels_y[-1] + 1)
-        labels_x = np.append(labels_x, 0)
-
-        fixmask = np.zeros((labels.shape[0] + 1, labels.shape[1]), int)
-        row_p, columns_p = labels_y[0], [labels_x[0]]
-        fixmask[row_p] = fmask[labels_x[0]]
-
-        for row, column in zip(labels_y[1:], labels_x[1:]):
-            if row == row_p:
-                columns_p.append(column)
-            else:
-                if len(columns_p) > 1:
-                    for x in columns_p:
-                        fixmask[row_p][x] = 0
-
-                row_p, columns_p = row, [column]
-
-            fixmask[row] = fixmask[row] | fmask[column]
-
-        fixmask = fixmask[:-1]
-
-        return fixmask
-
-    # -------------------------------------------------------------------------
-    # トレーニングデータを振り分け
-    loc_ans_list = []
-    for locate, label, _ in tqdm(loader):
-        fix_mask = _fixed_mask(label, mask)
-        locate = (float(locate[0][0]), float(locate[0][1]))
-        flg = -1 if fix_mask[0][tag_idx] == 1 else 0 \
-            if label[0][tag_idx] == 0 else 1
-
-        loc_ans_list.append((locate, flg))
-
-    # -------------------------------------------------------------------------
-    # plot
-    # color_num = 3
-    # HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
-    # RGB_tuples = [
-    #     '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
-    #     for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
-    # ]
-    colors = ['red', 'blue', 'green']
-
-    _map = folium.Map(
-        location=[40.0, -100.0],
-        zoom_start=4,
-        tiles='Stamen Terrain'
-    )
-
-    print('plotting...')
-    cnfmat = np.zeros(6)
-    cmidx = {
-        'label': {1: 1, -1: 3, 0: 5},
-        'predict': {1: 0, -1: 2, 0: 4}
-    }
-    for locate, label in tqdm(loc_ans_list):
-        predict = model.predict(torch.Tensor(locate), labeling=True)
-        predict = predict[0][tag_idx]
-        cnfmat[cmidx['label'][int(label)]] += 1
-        if predict == 1:
-            cnfmat[cmidx['predict'][int(label)]] += 1
-
-        if label not in limited:
-            continue
-
-        locate = [locate[1], locate[0]]
-        if label == predict or (label == -1 and predict == 1):
-            if only_mistake:
-                continue
-
-            folium.Circle(
-                radius=150,
-                location=locate,
-                popup=label,
-                color=colors[label],
-                fill=False,
-            ).add_to(_map)
-        else:
-            if only_mistake and label == -1:
-                continue
-
-            icon_cross = BeautifyIcon(
-                icon='remove',
-                inner_icon_style='color:{0};font-size:10px;'.format(colors[label]),
-                background_color='transparent',
-                border_color='transparent',
-            )
-            folium.Marker(
-                locate,
-                icon=icon_cross
-            ).add_to(_map)
-
-    print(cnfmat)
-    print('recall: {0},  precision: {1}'.format(
-        cnfmat[0] / cnfmat[1], cnfmat[0] / (cnfmat[0] + cnfmat[4])))
-    return _map
-
-
 def confusion_all_matrix(epoch=20, saved=True,
                          weight_path='../datas/geo_down/outputs/learned/',
                          outputs_path='../datas/geo_down/outputs/check/'):
@@ -712,7 +471,6 @@ def confusion_all_matrix(epoch=20, saved=True,
     import numpy as np
     import os
     import torch
-    from geodown_training import limited_category
     from mmm import DataHandler as DH
     from mmm import DatasetGeotag
     from mmm import GeotagGCN
@@ -728,23 +486,15 @@ def confusion_all_matrix(epoch=20, saved=True,
 
     rep_category = DH.loadJson('upper_category.json', input_path)
     category = DH.loadJson('category.json', input_path)
-    # rep_category = {'lasvegas': 0, 'newyorkcity': 1, 'seattle': 2}
-    # category = limited_category(rep_category)
-    category = limited_category(
-        rep_category,
-        # lda='../datas/geo_down/inputs/local_df_area16_wocoth_new'
-    )
     num_class = len(category)
 
     geo_down_train = GU.down_dataset(
         rep_category, category, 'train',
         base_path=base_path
-        # base_path=input_path
     )
     geo_down_validate = GU.down_dataset(
         rep_category, category, 'validate',
         base_path=base_path
-        # base_path=input_path
     )
 
     kwargs_DF = {
@@ -766,45 +516,18 @@ def confusion_all_matrix(epoch=20, saved=True,
     # maskの読み込み
     mask = GU.down_mask(rep_category, category, saved=False)
 
-    # 入力位置情報の正規化のためのパラメータ読み込み
-    # mean, std = DH.loadNpy('normalize_params', input_path)
-
-    # 学習で用いるデータの設定や読み込み先
-    # gcn_settings = {
-    #     'category': category,
-    #     'rep_category': rep_category,
-    #     'filepaths': {
-    #         'relationship': base_path + 'geo_relationship.pickle',
-    #         # 'learned_weight': input_path + '020weight.pth'
-    #         'learned_weight': input_path + '200weight.pth'
-    #     },
-    #     'feature_dimension': 30,
-    #     'simplegeonet_settings': {
-    #         'class_num': len(rep_category), 'mean': mean, 'std': std
-    #     }
-    # }
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
-        'filepaths': {
-            'relationship': '../datas/bases/geo_relationship.pickle',
-            # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-            'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-        },
-        'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-        'BR_settings': {'fineness': (20, 20)},
+        'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'base_weight': torch.load(
+            '../datas/geo_base/outputs/learned_50x25/400weight.pth'
+        ),
+        'BR_settings': {'fineness': (50, 25)}
     }
 
     # modelの設定
-    # model = GeotagGCN(
-    #     class_num=num_class,
-    #     learningrate=0.1,
-    #     momentum=0.9,
-    #     weight_decay=1e-4,
-    #     fix_mask=mask,
-    #     network_setting=gcn_settings,
-    #     multigpu=False,
-    # )
     model = GeotagGCN(
         class_num=num_class,
         learningrate=0.1,
@@ -813,8 +536,7 @@ def confusion_all_matrix(epoch=20, saved=True,
         fix_mask=mask,
         network_setting=gcn_settings,
     )
-    if epoch > 0:
-        model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
+    model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
 
     def _update_backprop_weight(labels, fmask):
         '''
@@ -918,49 +640,22 @@ def confusion_all_matrix(epoch=20, saved=True,
     return np.array(train_counts), np.array(validate_counts)
 
 
-def test():
-    import folium
-    from folium.plugins import BeautifyIcon
-
-    _map = folium.Map(
-        location=[40.0, -100.0],
-        zoom_start=4,
-        tiles='Stamen Terrain'
-    )
-
-    icon_cross = BeautifyIcon(
-        icon='remove',
-        inner_icon_style='color:red;font-size:10px;',
-        background_color='transparent',
-        border_color='transparent',
-    )
-    folium.Marker(
-        [45.0, -110],
-        # tooltip='star',
-        icon=icon_cross
-    ).add_to(_map)
-    folium.Circle(
-        radius=150,
-        location=[45.0, -110],
-        color='',
-        fill=False,
-    ).add_to(_map)
-
-    return _map
-
-
 if __name__ == "__main__":
     confusion_all_matrix(
         epoch=20,
-        weight_path='../datas/geo_down/outputs/learned_base_bp2/',
-        outputs_path='../datas/geo_down/outputs/check/learned_base_bp2/'
+        weight_path='../datas/geo_down/outputs/learned/',
+        outputs_path='../datas/geo_down/outputs/check/learned/'
     )
     confusion_all_matrix(
         epoch=0,
-        weight_path='../datas/geo_down/outputs/learned_base_bp2/',
-        outputs_path='../datas/geo_down/outputs/check/learned_base_bp2/'
+        weight_path='../datas/geo_down/outputs/learned/',
+        outputs_path='../datas/geo_down/outputs/check/learned/'
     )
     # visualize_classmap()
+    # visualize_classmap(
+    #     weight='../datas/geo_down/outputs/learned_rep32_bp/020weight.pth',
+    #     lat_range=(25, 50), lng_range=(-60, -125), unit=0.5, limited=['bellagio']
+    # )
     # plot_map()
     # visualize_training_data('bellagio')
     # visualize_oneclass_predict('bellagio', only_mistake=True)

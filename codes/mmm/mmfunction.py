@@ -48,7 +48,6 @@ def loading_animation(process_name, animation_type='circle'):
                 'circle': (['|', '/', '-', '\\'], 0.1),
                 'dot': (['.  ', '.. ', '...', '   '], 0.5)
             }
-            # animation_type = animation_type if animation_type in load_anime else 'dot'
             at = animation_type if animation_type in load_anime else 'circle'
             for c in itertools.cycle(load_anime[at][0]):
                 if done:
