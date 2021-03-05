@@ -68,7 +68,6 @@ def iweight(labels, mask, category):
 
 def lastmask(category=None):
     vis_down = DH.loadJson('category.json', '../datas/vis_down/inputs')
-    # geo_rep = DH.loadJson('category.json', '../datas/geo_rep/inputs')
     geo_down = DH.loadJson('category.json', '../datas/geo_down/inputs')
 
     vdlist = np.array(list(vis_down))
@@ -76,7 +75,6 @@ def lastmask(category=None):
 
     vismask = DH.loadPickle('04.pickle', '../datas/vis_down/inputs')
     geomask = DH.loadPickle('mask_5.pickle', '../datas/geo_down/inputs')
-    # geomask = GU.down_mask(geo_rep, geo_down, saved=False)
 
     lmask = np.zeros((len(category), len(category)))
     for cat, idx in category.items():
@@ -84,7 +82,6 @@ def lastmask(category=None):
         geosim = gdlist[geomask[geo_down[cat]] > 0]
 
         lsim = set(vissim) & set(geosim)
-        # lsim = set(vissim) & set(geo_down)
         lsim_idx = [category[item] for item in lsim]
         temp = np.zeros(len(category))
         temp[lsim_idx] = 1
@@ -129,26 +126,15 @@ def recognize(saved=True):
         '020weight.pth', '../datas/vis_down/outputs/learned_lmask/'
     )
     # -------------------------------------------------------------------------
-    # geogcn_settings = {
-    #     'category': geo_down,
-    #     'rep_category': geo_rep,
-    #     'filepaths': {
-    #         'relationship': '../datas/bases/geo_relationship.pickle',
-    #         # 'learned_weight': '../datas/geo_rep/outputs/learned/200weight.pth'
-    #         'learned_weight': '../datas/geo_rep/outputs/learned_nobp_zeroag10_none/200weight.pth'
-    #     },
-    #     'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-    #     'BR_settings': {'fineness': (20, 20)},
-    # }
     geogcn_settings = {
         'category': geo_down,
         'rep_category': geo_rep,
         'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
-        'rep_weight': torch.load('../datas/geo_down/inputs/rep_weight.pth'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
         'base_weight': torch.load(
-            '../datas/geo_base/outputs/learned/200weight.pth'
+            '../datas/geo_base/outputs/learned_50x25/400weight.pth'
         ),
-        'BR_settings': {'fineness': (20, 20)},
+        'BR_settings': {'fineness': (50, 25)}
     }
 
     # modelの設定
@@ -258,7 +244,6 @@ def lastresult(phase='train', before_labeling=False, thr=0.5, blthr=0.5):
         # lprd = vprd * gprd
         pidx = lprd >= thr
         prd = catlist[pidx]
-        # pll = lprd[pidx]
 
         results.append((
             true_label,
@@ -297,6 +282,7 @@ def lastresult(phase='train', before_labeling=False, thr=0.5, blthr=0.5):
     fkey_rdict = {item[6]: item[:3] for item in results}
 
     return results
+    # return fkey_rdict
 
 
 def coverage(phase='train'):
@@ -396,7 +382,6 @@ def predict_sample(filename, fkey_rdict, phase='train', max_falsepositive=5):
 
     # -------------------------------------------------------------------------
     ipath = '../datas/vis_down/inputs/images/{0}'.format(phase)
-    # fkey_rdict = lastresult(phase=phase, before_labeling=True)
     image_s = Image.open(os.path.join(ipath, filename)).convert('RGB')
     image_s = expand2square(image_s)
     true_label, predict_label, prc = fkey_rdict[filename]
@@ -439,11 +424,8 @@ def predict_sample(filename, fkey_rdict, phase='train', max_falsepositive=5):
 
 if __name__ == "__main__":
     # predict_samples(num_images=10000)
-    # rrr()
     # lastmask()
     # recognize()
-    # test()
-    # top_n_acc()
     # coverage()
     lastresult(before_labeling=True, thr=0.5)
 

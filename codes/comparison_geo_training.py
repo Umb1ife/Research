@@ -7,7 +7,6 @@ import torch.optim as optim
 from mmm import CustomizedMultiLabelSoftMarginLoss as MyLossFunction
 from mmm import DataHandler as DH
 from mmm import DatasetFlickr
-# from mmm import VisUtils as VU
 from mmm import GeoUtils as GU
 from mmm.mymodel import MyBaseModel
 from torchvision import models
@@ -45,7 +44,6 @@ if __name__ == "__main__":
     device_ids = '0, 1, 2, 3'
     epochs = 200
     learning_rate = 1
-    # sim_threshold = 0.4
     workers = 4
     input_path = '../datas/geo_down/inputs/'
 
@@ -75,20 +73,6 @@ if __name__ == "__main__":
         ]
     )
 
-    # kwargs_DF = {
-    #     'train': {
-    #         'category': category,
-    #         'annotations': geo_down_train,
-    #         'transform': transform,
-    #         'image_path': input_path + 'images/train/'
-    #     },
-    #     'validate': {
-    #         'category': category,
-    #         'annotations': geo_down_validate,
-    #         'transform': transform,
-    #         'image_path': input_path + 'images/validate/'
-    #     }
-    # }
     kwargs_DF = {
         'train': {
             'class_num': len(category),
@@ -125,7 +109,6 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    # mask = DH.loadPickle('04.pickle', input_path)
     mask = GU.down_mask(rep_category, category, saved=False)
 
     # 誤差伝播の重みの読み込み

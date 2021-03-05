@@ -44,7 +44,6 @@ if __name__ == "__main__":
     device_ids = '0, 1, 2, 3'
     epochs = 200
     learning_rate = 1
-    # sim_threshold = 0.4
     workers = 4
     input_path = '../datas/vis_down/inputs/'
 
@@ -112,7 +111,6 @@ if __name__ == "__main__":
         cudnn.benchmark = True
 
     # maskの読み込み
-    # mask = DH.loadPickle('04.pickle', input_path)
     mask = VU.down_mask(rep_category, category, saved=False)
 
     # 誤差伝播の重みの読み込み

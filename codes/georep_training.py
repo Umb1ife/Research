@@ -130,7 +130,6 @@ if __name__ == "__main__":
     model = RepGeoClassifier(
         class_num=num_class,
         loss_function=MyLossFunction(reduction='none'),
-        # loss_function=MyLossFunction(),
         optimizer=optim.SGD,
         learningrate=args.learning_rate,
         momentum=0.9,
@@ -139,8 +138,6 @@ if __name__ == "__main__":
         backprop_weight=bp_weight,
         network_setting={
             'num_classes': num_class,
-            # 'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-            # 'BR_settings': {'fineness': (20, 20)}
             'base_weight_path': '../datas/geo_base/outputs/learned_50x25/400weight.pth',
             'BR_settings': {'fineness': (50, 25)}
         }
@@ -164,7 +161,9 @@ if __name__ == "__main__":
     # 途中まで学習をしていたらここで読み込み
     if args.start_epoch > 1:
         model.loadmodel('{0:0=3}weight.pth'.format(args.start_epoch), mpath)
+        args.start_epoch += 1
     else:
+        # 学習前
         train_loss, train_recall, train_precision = model.validate(train_loader)
         val_loss, val_recall, val_precision = model.validate(val_loader)
         print('epoch: {0}'.format(0))

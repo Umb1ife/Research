@@ -173,26 +173,28 @@ if __name__ == "__main__":
         log_dir=log_dir + '{0:%Y%m%d}_{0:%H%M}'.format(now)
     )
 
-    # 学習前
-    train_loss, train_recall, train_precision = model.validate(train_loader)
-    val_loss, val_recall, val_precision = model.validate(val_loader)
-    print('epoch: {0}'.format(0))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        train_loss, train_recall, train_precision
-    ))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        val_loss, val_recall, val_precision
-    ))
-
-    writer.add_scalar('loss', train_loss, 0)
-    writer.add_scalar('recall', train_recall, 0)
-    writer.add_scalar('precision', train_precision, 0)
-    model.savemodel('000weight.pth', mpath)
-    print('------------------------------------------------------------------')
-
     # 途中まで学習をしていたらここで読み込み
     if args.start_epoch > 1:
         model.loadmodel('{0:0=3}weight'.format(args.start_epoch), mpath)
+        args.start_epoch += 1
+    else:
+        # 学習前
+        train_loss, train_recall, train_precision = model.validate(train_loader)
+        val_loss, val_recall, val_precision = model.validate(val_loader)
+        print('epoch: {0}'.format(0))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            train_loss, train_recall, train_precision
+        ))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            val_loss, val_recall, val_precision
+        ))
+
+        writer.add_scalar('loss', train_loss, 0)
+        writer.add_scalar('recall', train_recall, 0)
+        writer.add_scalar('precision', train_precision, 0)
+        model.savemodel('000weight.pth', mpath)
+
+    print('------------------------------------------------------------------')
 
     # 学習
     for epoch in range(args.start_epoch, epochs + 1):

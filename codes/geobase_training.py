@@ -4,7 +4,6 @@ import os
 import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-# from mmm import DataHandler as DH
 from mmm import DatasetGeobase
 from mmm import GeoBaseNet
 from mmm import GeoUtils as GU
@@ -105,7 +104,9 @@ if __name__ == "__main__":
     # 途中まで学習をしていたらここで読み込み
     if args.start_epoch > 1:
         model.loadmodel('{0:0=3}weight.pth'.format(args.start_epoch), mpath)
+        args.start_epoch += 1
     else:
+        # 学習前
         model.savemodel('000weight.pth', mpath)
         train_loss, train_recall, train_precision = model.validate(train_loader)
         print('epoch: {0}'.format(0))

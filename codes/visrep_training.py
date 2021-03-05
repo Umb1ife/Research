@@ -103,14 +103,12 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         sampler=IDS(train_dataset, callback_get_label=lambda d, i: None),
-        # shuffle=False,
         batch_size=batchsize,
         num_workers=numwork
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         sampler=IDS(val_dataset, callback_get_label=lambda d, i: None),
-        # shuffle=False,
         batch_size=batchsize,
         num_workers=numwork
     )
@@ -141,10 +139,6 @@ if __name__ == "__main__":
     mpath = args.outputs_path if args.outputs_path[-1:] == '/' \
         else args.outputs_path + '/'
 
-    # 途中まで学習をしていたらここで読み込み
-    if args.start_epoch > 1:
-        model.loadmodel('{0}cnn.pth'.format(args.start_epoch), mpath)
-
     # logの保存先 2020/01/01 15:30 -> log/20200101_1530に保存
     now = datetime.datetime.now()
     print('log -> {0:%Y%m%d}_{0:%H%M}'.format(now))
@@ -153,21 +147,27 @@ if __name__ == "__main__":
         log_dir=log_dir + '{0:%Y%m%d}_{0:%H%M}'.format(now)
     )
 
-    # 学習前
-    train_loss, train_recall, train_precision = model.validate(train_loader)
-    val_loss, val_recall, val_precision = model.validate(val_loader)
-    print('epoch: {0}'.format(0))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        train_loss, train_recall, train_precision
-    ))
-    print('loss: {0}, recall: {1}, precision: {2}'.format(
-        val_loss, val_recall, val_precision
-    ))
+    # 途中まで学習をしていたらここで読み込み
+    if args.start_epoch > 1:
+        model.loadmodel('{0}cnn.pth'.format(args.start_epoch), mpath)
+        args.start_epoch += 1
+    else:
+        # 学習前
+        train_loss, train_recall, train_precision = model.validate(train_loader)
+        val_loss, val_recall, val_precision = model.validate(val_loader)
+        print('epoch: {0}'.format(0))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            train_loss, train_recall, train_precision
+        ))
+        print('loss: {0}, recall: {1}, precision: {2}'.format(
+            val_loss, val_recall, val_precision
+        ))
 
-    writer.add_scalar('loss', train_loss, 0)
-    writer.add_scalar('recall', train_recall, 0)
-    writer.add_scalar('precision', train_precision, 0)
-    model.savemodel('000weight.pth', mpath)
+        writer.add_scalar('loss', train_loss, 0)
+        writer.add_scalar('recall', train_recall, 0)
+        writer.add_scalar('precision', train_precision, 0)
+        model.savemodel('000weight.pth', mpath)
+
     print('------------------------------------------------------------------')
 
     # 学習

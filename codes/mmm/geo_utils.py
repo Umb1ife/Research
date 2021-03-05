@@ -52,8 +52,6 @@ class GeoUtils:
             y_min, y_max,
             (y_max - y_min) / (fineness[1] * numdata_sqrt_oneclass)
         )
-        # x = np.linspace(x_min, x_max, fineness[0] * numdata_sqrt_oneclass)
-        # y = np.linspace(y_min, y_max, fineness[1] * numdata_sqrt_oneclass)
 
         locate_tags_dictlist = []
         temp = []
@@ -111,7 +109,6 @@ class GeoUtils:
         print('calculating mask ...')
         repsnum = len(category)
         _mask = np.zeros((repsnum, repsnum), int)
-        # sim_dict = DH.loadPickle('geo_rep_simdict', base_path)
         sim_dict = DH.loadJson('geo_rep_simdict', base_path)
 
         for tag1 in category:
@@ -132,7 +129,6 @@ class GeoUtils:
     def down_dataset(rep_category, local_category, phase='train',
                      base_path='../datas/bases/'):
         print('preparing dataset: {0} ...'.format(phase))
-        # lda = DH.loadPickle('local_df_area16_wocoth_new.pickle', base_path)
         gda = DH.loadPickle('geospatial_df_area16_wocoth.pickle', base_path)
         down_category = sorted(list(set(local_category) - set(rep_category)))
 
@@ -164,8 +160,8 @@ class GeoUtils:
 
     @staticmethod
     def _down_mask(rep_category, local_category, sim_thr=5, reverse=False,
-                  saved=True, save_path='../datas/geo_down/inputs/',
-                  base_path='../datas/bases/'):
+                   saved=True, save_path='../datas/geo_down/inputs/',
+                   base_path='../datas/bases/'):
         print('calculating mask ...')
         geo_category = {key: idx for idx, key in enumerate(local_category)}
         down_category = sorted(list(set(local_category) - set(rep_category)))

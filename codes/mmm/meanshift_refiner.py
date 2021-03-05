@@ -32,7 +32,6 @@ class MeanShiftRefiner:
 
             center = ms.cluster_centers_[label]
             _datas = np.array(locates)[labels == label]
-            # mu = np.mean(_datas, axis=0)
             _cov = np.cov(_datas[:, 0], _datas[:, 1])
             _lambdas, _ = np.linalg.eigh(_cov)
             _order = _lambdas.argsort()[::-1]
