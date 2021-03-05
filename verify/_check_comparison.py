@@ -65,7 +65,6 @@ def confusion_all_matrix(epoch=20, saved=True,
     num_class = train_dataset.num_category()
 
     # maskの読み込み
-    # mask = DH.loadPickle('04.pickle', input_path)
     mask = VU.down_mask(rep_category, category, sim_thr=0.4, saved=False)
 
     # modelの設定

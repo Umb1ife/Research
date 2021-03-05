@@ -13,18 +13,9 @@ def plot_map(phase='train', refined=False, limited=None,
     from mmm import GeoUtils as GU
 
     input_path = '../datas/geo_rep/inputs/'
-    # datas = DH.loadPickle('geo_rep_train.pickle', input_path)
     category = DH.loadJson('category.json', input_path)
-    # mean, std = DH.loadNpy('normalize_params.npy', input_path)
-    # -------------------------------------------------------------------------
-
-    datas, (mean, std) = GU.rep_dataset(
-        category, phase,
-        # base_path='../datas/geo_down/inputs/'
-        # base_path=input_path
-    )
+    datas, (mean, std) = GU.rep_dataset(category, phase)
     category = list(category.keys())
-    # class_num = len(category)
 
     if sort_std:
         groups = {key: [] for key in category}
@@ -64,7 +55,6 @@ def plot_map(phase='train', refined=False, limited=None,
     for item in datas:
         labels, locate = item['labels'], item['locate']
         locate = [locate[1], locate[0]]
-        # radius = 10000
         radius = 150
         for lbl in labels:
             popup = category[lbl]
@@ -172,7 +162,6 @@ def classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
                     color=RGB_tuples[convert_idx[lbl]],
                     opacity=prd[lbl],
                     fill=False,
-                    # fill_opacity=opacity,
                 ).add_to(_map)
                 radius *= 2
 
@@ -197,17 +186,9 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     # -------------------------------------------------------------------------
     # load classifier
     category = DH.loadJson('category.json', '../datas/geo_rep/inputs')
-    # category = {'lasvegas': 0, 'newyorkcity': 1}
-    # mean, std = DH.loadNpy('normalize_params.npy', '../datas/geo_rep/inputs')
-    # -------------------------------------------------------------------------
-
     category = list(category.keys())
     num_class = len(category)
-    # model = RepGeoClassifier(
-    #     class_num=num_class,
-    #     loss_function=MyLossFunction(reduction='none'),
-    #     network_setting={'class_num': num_class, 'mean': mean, 'std': std},
-    # )
+
     model = RepGeoClassifier(
         class_num=num_class,
         loss_function=MyLossFunction(reduction='none'),
@@ -245,7 +226,6 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
 
     color_num = len(convert_idx)
     HSV_tuples = [(x * 1.0 / color_num, 1.0, 1.0) for x in range(color_num)]
-    # HSV_tuples = [(x * 1.0 / num_class, 1.0, 1.0) for x in range(num_class)]
     RGB_tuples = [
         '#%02x%02x%02x' % (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255))
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
@@ -255,7 +235,6 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     # plot
     for lat in tqdm(lats):
         for lng in lngs:
-            # labels = model.predict(torch.Tensor([30, -80]), labeling=True)
             labels = model.predict(torch.Tensor([lng, lat]), labeling=True)
             labels = np.where(labels > 0)[0]
             radius = 150
@@ -339,12 +318,7 @@ def confusion_all_matrix(epoch=200, saved=True,
             'BR_settings': {'fineness': (20, 20)}
         }
     )
-
-    # model.loadmodel('../datas/geo_down/inputs/rep_weight.pth')
-    # model.loadmodel('../datas/geo_down/inputs/weights/bp2_za10.pth')
     model.loadmodel('../datas/geo_down/inputs/weights/nobp_za10.pth')
-    # model.loadmodel('{0:0=3}weight'.format(epoch),
-    #                 '../datas/geo_rep/outputs/learned_bp_zeroag10_35/')
 
     def _update_backprop_weight(labels, fmask):
         '''

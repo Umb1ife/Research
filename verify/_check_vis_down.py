@@ -240,8 +240,6 @@ def hist_change(phase='train', barnum=3, binnum=5, saved=False):
 
     plt.rcParams['font.family'] = 'IPAexGothic'
     # -------------------------------------------------------------------------
-    # dpath = '../datas/gcn/outputs/check/ite'
-    # data = DH.loadNpy('epoch00to20_thr04_{0}.npy'.format(phase), dpath)
     data = DH.loadNpy('../datas/vis_down/outputs/check/compare_pr.npy')
     before = [[] for _ in range(barnum)]
     after = [[] for _ in range(barnum)]
@@ -415,10 +413,6 @@ def predict_sample(epoch=20, phase='train', saved=True, num=3, thr=0.5,
         loader.pin_memory = True
         cudnn.benchmark = True
 
-    # maskの読み込み
-    # mask = VU.down_mask(rep_category, category, sim_thr=0.4)
-    # mask = DH.loadPickle('../datas/vis_down/inputs/04.pickle')
-
     # 学習で用いるデータの設定や読み込み先
     gcn_settings = {
         'category': category,
@@ -432,7 +426,6 @@ def predict_sample(epoch=20, phase='train', saved=True, num=3, thr=0.5,
     model = VisGCN(
         class_num=num_class,
         weight_decay=1e-4,
-        # fix_mask=mask,
         network_setting=gcn_settings,
     )
     model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
