@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:20.10-py3
+FROM nvcr.io/nvidia/pytorch:20.12-py3
 
 LABEL maintainer="Umblife" \
       mail="umblife@gmail.com" \
@@ -27,30 +27,30 @@ RUN apt-get update && apt-get install -y \
 
 # --install PROJ---------------------------------------------------------------
 RUN cd /workspace
-ADD https://download.osgeo.org/proj/proj-6.2.1.tar.gz /workspace/proj-6.2.1.tar.gz
-RUN tar -zxvf proj-6.2.1.tar.gz
-RUN cd ./proj-6.2.1 \
+ADD https://download.osgeo.org/proj/proj-7.2.1.tar.gz /workspace/proj-7.2.1.tar.gz
+RUN tar -zxvf proj-7.2.1.tar.gz
+RUN cd ./proj-7.2.1 \
     && ./configure --prefix=/usr \
     && make -j$(nproc) \
     && make install
 
 # --install GEOS---------------------------------------------------------------
 RUN cd /workspace
-ADD http://download.osgeo.org/geos/geos-3.8.1.tar.bz2 /workspace/geos-3.8.1.tar.bz2
-RUN tar -jxvf geos-3.8.1.tar.bz2
-RUN cd ./geos-3.8.1 \
+ADD http://download.osgeo.org/geos/geos-3.9.0.tar.bz2 /workspace/geos-3.9.0.tar.bz2
+RUN tar -jxvf geos-3.9.0.tar.bz2
+RUN cd ./geos-3.9.0 \
     && ./configure --prefix=/usr \
     && make -j$(nproc) \
     && make install
 
 # --remove installer files-----------------------------------------------------
-RUN rm -rf /workspace/proj-6.2.1
-RUN rm -rf /workspace/geos-3.8.1
-RUN rm -f /workspace/proj-6.2.1.tar.gz
-RUN rm -f /workspace/geos-3.8.1.tar.bz2
+RUN rm -rf /workspace/proj-7.2.1
+RUN rm -rf /workspace/geos-3.9.0
+RUN rm -f /workspace/proj-7.2.1.tar.gz
+RUN rm -f /workspace/geos-3.9.0.tar.bz2
 
 # --install python libraries---------------------------------------------------
 RUN pip install --upgrade pip
-RUN pip install folium==0.11.0 Pillow==7.2.0 pyshp==2.1.2 cryptography==3.2.1
+RUN pip install cryptography==3.2.1 folium==0.12.1 Pillow==8.1.0 pyshp==2.1.3
 RUN pip install shapely==1.7.1 --no-binary shapely
 RUN pip install cartopy==0.18.0 --no-binary cartopy

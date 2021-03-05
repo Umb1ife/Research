@@ -1,8 +1,6 @@
-import json
 import numpy as np
 import torch
 import torch.nn as nn
-from .datahandler import DataHandler
 from .mymodel import MyBaseModel
 from torchvision import models
 
@@ -36,7 +34,7 @@ class GCNLayer(nn.Module):
 
 
 class GCNModel(nn.Module):
-    def __init__(self, *, num_class=3100, filepaths={},
+    def __init__(self, category, rep_category, relationship, rep_weight,
                  feature_dimension=2048):
         '''
         コンストラクタ
@@ -44,23 +42,18 @@ class GCNModel(nn.Module):
         super().__init__()
         self._use_gpu = torch.cuda.is_available()
         self._feature_dimension = feature_dimension
-
-        upper_category = json.load(open(filepaths['upper_category'], 'r'))
-        category = json.load(open(filepaths['category'], 'r'))
-        relationship = DataHandler.loadPickle(filepaths['relationship'])
-        CNN_weight = torch.load(filepaths['learned_weight'])
+        num_class = len(category)
 
         # H_0の作成
-        fc_weight = np.array(CNN_weight['fc.weight'].cpu(), dtype=np.float64)
+        fc_weight = np.array(rep_weight['fc.weight'].cpu(), dtype=np.float64)
         H_0 = np.zeros((num_class, feature_dimension))
-        for label, index in upper_category.items():
+        for label, index in rep_category.items():
             H_0[category[label]] = fc_weight[index]
 
         # Aの作成
         A = np.zeros((num_class, num_class), dtype=int)
         all_category_labels = list(category.keys())
 
-        # for label, _ in upper_category.items():
         for label, _ in category.items():
             if label not in relationship:
                 continue
@@ -74,9 +67,9 @@ class GCNModel(nn.Module):
         # Fine-tuningしたresnetのFC層前までを取得
         self._before_fc = models.resnet101(pretrained=True)
         self._before_fc.fc = nn.Linear(
-            self._before_fc.fc.in_features, len(upper_category)
+            self._before_fc.fc.in_features, len(rep_category)
         )
-        self._before_fc.load_state_dict(CNN_weight)
+        self._before_fc.load_state_dict(rep_weight)
         self._before_fc = torch.nn.Sequential(
             *(list(self._before_fc.children())[:-1])
         )
@@ -112,7 +105,7 @@ class GCNModel(nn.Module):
         return
 
 
-class MultiLabelGCN(MyBaseModel):
+class VisGCN(MyBaseModel):
     '''
     GCNで学習する識別器
     '''
