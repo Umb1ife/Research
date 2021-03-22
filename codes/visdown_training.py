@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import numpy as np
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -126,14 +125,13 @@ if __name__ == "__main__":
         rep_category, category,
         sim_thr=args.sim_threshold,
         saved=True
-    )
+    ) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
     bp_weight = DH.loadNpy('backprop_weight', input_path) \
         if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, False, input_path)
-    bp_weight = np.power(bp_weight, 2)
 
     # 学習で用いるデータの設定や読み込み先
     gcn_settings = {

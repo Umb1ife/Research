@@ -11,6 +11,7 @@ def plot_map(phase='train', refined=False, limited=None,
     import numpy as np
     from mmm import DataHandler as DH
     from mmm import GeoUtils as GU
+    from tqdm import tqdm
 
     input_path = '../datas/geo_rep/inputs/'
     category = DH.loadJson('category.json', input_path)
@@ -52,7 +53,7 @@ def plot_map(phase='train', refined=False, limited=None,
         for x in list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
     ]
 
-    for item in datas:
+    for item in tqdm(datas):
         labels, locate = item['labels'], item['locate']
         locate = [locate[1], locate[0]]
         radius = 150
@@ -80,7 +81,7 @@ def plot_map(phase='train', refined=False, limited=None,
     return _map
 
 
-def classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
+def classmap(weight='../datas/geo_rep/outputs/learned_232/200weight.pth',
              lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
              limited=None, saved=False, opacity=0.3, thr=0.5):
     import colorsys
@@ -103,8 +104,8 @@ def classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
         loss_function=MyLossFunction(reduction='none'),
         network_setting={
             'num_classes': num_class,
-            'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-            'BR_settings': {'fineness': (20, 20)}
+            'base_weight_path': '../datas/geo_base/outputs/learned_50x25/200weight.pth',
+            'BR_settings': {'fineness': (50, 25)}
         }
     )
     model.loadmodel(weight)
@@ -171,7 +172,7 @@ def classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
     return _map
 
 
-def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
+def visualize_classmap(weight='../datas/geo_rep/outputs/learned_232/200weight.pth',
                        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
                        limited=None, saved=False, opacity=0.3):
     import colorsys
@@ -194,8 +195,8 @@ def visualize_classmap(weight='../datas/geo_rep/outputs/learned/200weight.pth',
         loss_function=MyLossFunction(reduction='none'),
         network_setting={
             'num_classes': num_class,
-            'base_weight_path': '../datas/geo_base/outputs/learned/200weight.pth',
-            'BR_settings': {'fineness': (20, 20)}
+            'base_weight_path': '../datas/geo_base/outputs/learned_50x25/200weight.pth',
+            'BR_settings': {'fineness': (50, 25)}
         }
     )
     model.loadmodel(weight)
@@ -423,10 +424,10 @@ def confusion_all_matrix(epoch=200, saved=True,
 
 
 if __name__ == "__main__":
-    confusion_all_matrix(
-        epoch=200,
-        outputs_path='../datas/geo_rep/outputs/check/rep32_nobp/'
-    )
+    # confusion_all_matrix(
+    #     epoch=200,
+    #     outputs_path='../datas/geo_rep/outputs/check/rep32_nobp/'
+    # )
     # confusion_all_matrix(
     #     epoch=0,
     #     outputs_path='../datas/geo_rep/outputs/check/last/'

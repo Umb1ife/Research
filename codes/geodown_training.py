@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import numpy as np
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -114,14 +113,13 @@ if __name__ == "__main__":
         if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
-    bp_weight = np.power(bp_weight, 2)
 
     # -------------------------------------------------------------------------
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
         'relationship': DH.loadPickle('geo_relationship.pickle', base_path),
-        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned_232/200weight.pth'),
         'base_weight': torch.load(
             '../datas/geo_base/outputs/learned_50x25/400weight.pth'
         ),

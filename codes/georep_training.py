@@ -107,8 +107,6 @@ if __name__ == "__main__":
         if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
-    # import numpy as np
-    # bp_weight = np.power(bp_weight, 2)
 
     # -------------------------------------------------------------------------
     geo_rep_train = GU.zerodata_augmentation(

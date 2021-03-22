@@ -82,7 +82,7 @@ def plot_map(phase='train', limited=None, saved=False, sort_std=False):
     return _map
 
 
-def visualize_classmap(weight='../datas/geo_down/outputs/learned/020weight.pth',
+def visualize_classmap(weight='../datas/geo_down/outputs/learned_232/020weight.pth',
                        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
                        limited=None, saved=True):
     import colorsys
@@ -103,7 +103,7 @@ def visualize_classmap(weight='../datas/geo_down/outputs/learned/020weight.pth',
         'category': category,
         'rep_category': rep_category,
         'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
-        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned_232/200weight.pth'),
         'base_weight': torch.load(
             '../datas/geo_base/outputs/learned_50x25/400weight.pth'
         ),
@@ -302,7 +302,7 @@ def visualize_training_data(tag, phase='train', limited=[-1, 0, 1]):
 
 
 def visualize_oneclass_predict(tag, phase='train', epoch=20,
-                               weight_path='../datas/geo_down/outputs/learned',
+                               weight_path='../datas/geo_down/outputs/learned_232',
                                limited=[0, 1], only_mistake=False):
     '''
     あるクラスについて学習データを正例(1)・unknown(-1)・負例(0)に振り分けプロット
@@ -327,7 +327,7 @@ def visualize_oneclass_predict(tag, phase='train', epoch=20,
         'category': category,
         'rep_category': rep_category,
         'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
-        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned_232/200weight.pth'),
         'base_weight': torch.load(
             '../datas/geo_base/outputs/learned_50x25/400weight.pth'
         ),
@@ -373,6 +373,7 @@ def visualize_oneclass_predict(tag, phase='train', epoch=20,
     )
 
     mask = GU.down_mask(rep_category, category, sim_thr=5, saved=False)
+    # mask = DH.loadPickle('../datas/geo_down/inputs/mask_5.pickle')
 
     # -------------------------------------------------------------------------
     def _fixed_mask(labels, fmask):
@@ -520,7 +521,7 @@ def confusion_all_matrix(epoch=20, saved=True,
         'category': category,
         'rep_category': rep_category,
         'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
-        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned_232/200weight.pth'),
         'base_weight': torch.load(
             '../datas/geo_base/outputs/learned_50x25/400weight.pth'
         ),
@@ -643,13 +644,13 @@ def confusion_all_matrix(epoch=20, saved=True,
 if __name__ == "__main__":
     confusion_all_matrix(
         epoch=20,
-        weight_path='../datas/geo_down/outputs/learned/',
-        outputs_path='../datas/geo_down/outputs/check/learned/'
+        weight_path='../datas/geo_down/outputs/learned_232/',
+        outputs_path='../datas/geo_down/outputs/check/learned_232/'
     )
     confusion_all_matrix(
         epoch=0,
-        weight_path='../datas/geo_down/outputs/learned/',
-        outputs_path='../datas/geo_down/outputs/check/learned/'
+        weight_path='../datas/geo_down/outputs/learned_232/',
+        outputs_path='../datas/geo_down/outputs/check/learned_232/'
     )
     # visualize_classmap()
     # visualize_classmap(

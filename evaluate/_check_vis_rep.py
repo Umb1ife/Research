@@ -327,12 +327,12 @@ def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
 
 if __name__ == "__main__":
     # predict_sample(saved=False, num=3)
-    predict_sample(saved=True, num=100000)
-    # confusion_all_matrix(
-    #     epoch=200,
-    #     weight_path='../datas/vis_rep/outputs/learned/',
-    #     outputs_path='../datas/vis_rep/outputs/check/learned/'
-    # )
+    # predict_sample(saved=True, num=100000)
+    confusion_all_matrix(
+        epoch=200,
+        weight_path='../datas/vis_rep/outputs/learned/',
+        outputs_path='../datas/vis_rep/outputs/check/learned/'
+    )
     # confusion_all_matrix(
     #     epoch=0,
     #     weight_path='../datas/vis_rep/outputs/learned/',
