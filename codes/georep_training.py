@@ -100,13 +100,15 @@ if __name__ == "__main__":
 
     # maskの読み込み
     mask = DH.loadPickle('mask_5', input_path) if args.load_mask else None
-    mask = GU.rep_mask(category) if mask is None else mask
+    mask = GU.rep_mask(category, reverse=False) if mask is None else mask
 
     # 誤差伝播の重みの読み込み
     bp_weight = DH.loadNpy('backprop_weight', input_path) \
         if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
+    import numpy as np
+    bp_weight = np.sqrt(bp_weight)
 
     # -------------------------------------------------------------------------
     geo_rep_train = GU.zerodata_augmentation(

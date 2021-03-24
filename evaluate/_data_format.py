@@ -1,32 +1,11 @@
 import os
-import pandas as pd
 import sys
 from tqdm import tqdm
 
 sys.path.append(os.path.join('..', 'codes'))
 
 from mmm import DataHandler as DH
-from mmm import VisUtils as VU
-
-
-def geodata_format():
-    local_dict = DH.loadPickle(
-        '../datas/backup/def_georep/local_df_area16_wocoth_refined_r.pickle'
-    )
-    lda_new = pd.DataFrame(local_dict).T
-    lda_data = DH.loadPickle(
-        '../datas/geo_down/inputs/local_df_area16_wocoth_new.pickle'
-    )
-
-    for idx, data in tqdm(lda_data.iterrows(), total=lda_data.shape[0]):
-        lda_new.at[idx, 'geo'] = data['geo']
-        lda_new.at[idx, 'geo_val'] = data['geo_val']
-
-    DH.savePickle(
-        lda_new,
-        'local_df_area16_wocoth_refined.pickle',
-        '../datas/geo_down/inputs/'
-    )
+# from mmm import VisUtils as VU
 
 
 def vis_tag2file(stage='rep', saved=True):
@@ -77,14 +56,12 @@ def vis_sim_dict(saved=True):
 
 
 def samedown():
-    from geodown_training import limited_category
-
     t2f = DH.loadJson('../datas/bases/down_tag2file.json')
     t2f = set(t2f['train'].keys())
-    visrep = DH.loadJson('../datas/vis_rep/inputs/upper_category.json')
+    visrep = DH.loadJson('../datas/vis_rep/inputs/category.json')
     # visdown_old = DH.loadJson('../datas/gcn/inputs/category.json')
     georep = DH.loadJson('../datas/geo_rep/inputs/category.json')
-    geodown = limited_category(georep)
+    geodown = DH.loadJson('../datas/geo_down/inputs/category.json')
 
     down = set(geodown) - set(georep)
     down = down & t2f
@@ -378,8 +355,8 @@ if __name__ == "__main__":
     # )
     # bbb = DH.loadPickle('../datas/gcn/inputs/comb_mask/04.pickle')
     # geodata_format()
-    get_geo()
+    # get_geo()
     # geo_rep2()
-    # samedown()
+    samedown()
 
     print('finish.')

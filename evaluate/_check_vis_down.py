@@ -507,16 +507,16 @@ def predict_sample(epoch=20, phase='train', saved=True, num=3, thr=0.5,
 if __name__ == "__main__":
     # predict_sample(saved=True, num=1000)
     # rep_confmat(saved=True)
-    hist_change(saved=True)
-    # confusion_all_matrix(
-    #     epoch=20,
-    #     weight_path='../datas/vis_down/outputs/learned_lmask/',
-    #     outputs_path='../datas/vis_down/outputs/check/learned_lmask/'
-    # )
-    # confusion_all_matrix(
-    #     epoch=0,
-    #     weight_path='../datas/vis_down/outputs/learned_lmask/',
-    #     outputs_path='../datas/vis_down/outputs/check/learned_lmask/'
-    # )
+    # hist_change(saved=True)
+    confusion_all_matrix(
+        epoch=20,
+        weight_path='../datas/vis_down/outputs/learned/',
+        outputs_path='../datas/vis_down/outputs/check/learned/'
+    )
+    confusion_all_matrix(
+        epoch=0,
+        weight_path='../datas/vis_down/outputs/learned/',
+        outputs_path='../datas/vis_down/outputs/check/learned/'
+    )
 
     print('finish.')

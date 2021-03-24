@@ -174,7 +174,7 @@ if __name__ == "__main__":
     # asd = GeoSim().calculate_full(lda_o)
     # DH.saveJson(asd, 'geo_all_sim.json', '../datas/bases/')
     rsd = GeoRepSim().calculate(lda_o)
-    DH.saveJson(rsd, 'geo_rep_simdict.json', '../datas/geo_rep/inputs/')
+    DH.saveJson(rsd, 'geo_rep_simdict.json', '../datas/bases/')
 
     # grs = DH.loadJson('../datas/geo_rep/inputs/geo_rep_simdict.json')
 

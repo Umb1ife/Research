@@ -5,6 +5,9 @@ sys.path.append(os.path.join('..', 'codes'))
 
 
 def plot_map(phase='train', limited=None, saved=False, sort_std=False):
+    '''
+    トレーニングデータのプロット
+    '''
     import colorsys
     import folium
     import numpy as np
@@ -85,6 +88,9 @@ def plot_map(phase='train', limited=None, saved=False, sort_std=False):
 def visualize_classmap(weight='../datas/geo_down/outputs/learned_232/020weight.pth',
                        lat_range=(25, 50), lng_range=(-60, -125), unit=0.5,
                        limited=None, saved=True):
+    '''
+    指定した範囲内の点について予測クラスをプロット
+    '''
     import colorsys
     import folium
     import numpy as np
@@ -515,7 +521,7 @@ def confusion_all_matrix(epoch=20, saved=True,
     val_dataset = DatasetGeotag(**kwargs_DF['validate'])
 
     # maskの読み込み
-    mask = GU.down_mask(rep_category, category, saved=False)
+    mask = GU.down_mask(rep_category, category, reverse=False, saved=False)
 
     gcn_settings = {
         'category': category,
@@ -641,17 +647,59 @@ def confusion_all_matrix(epoch=20, saved=True,
     return np.array(train_counts), np.array(validate_counts)
 
 
+def check_change(filepath='../datas/geo_down/outputs/check/learned'):
+    import numpy as np
+    import os
+    from mmm import DataHandler as DH
+
+    ct000 = np.load(os.path.join(filepath, 'cm_train_000.npy'))
+    ct020 = np.load(os.path.join(filepath, 'cm_train_020.npy'))
+    # cv000 = np.load(ppp + '/cm_validate_000.npy')
+    # cv020 = np.load(ppp + '/cm_validate_020.npy')
+    category = DH.loadJson('../datas/geo_down/inputs/category.json')
+    reps = DH.loadJson('../datas/geo_down/inputs/upper_category.json')
+    gr = DH.loadPickle('../datas/bases/geo_relationship.pickle')
+
+    downs = sorted(set(category) - set(reps))
+    gr2 = {key: [] for idx, key in enumerate(downs)}
+    for rep, down in gr.items():
+        for item in down:
+            if item not in downs:
+                continue
+
+            gr2[item].append(rep)
+
+    concat = []
+    for cat, bf, af in zip(category.keys(), ct000, ct020):
+        if cat in reps:
+            continue
+
+        temp = [cat]
+        temp.append(sorted(set(category) & set(gr2[cat])))
+        temp.extend(bf)
+        temp.extend(af)
+
+        concat.append(temp)
+
+    concat = np.array(concat)
+
+    DH.saveNpy(concat, '../datas/geo_down/outputs/check/concat')
+
+    return concat
+
+
 if __name__ == "__main__":
-    confusion_all_matrix(
-        epoch=20,
-        weight_path='../datas/geo_down/outputs/learned_232/',
-        outputs_path='../datas/geo_down/outputs/check/learned_232/'
-    )
-    confusion_all_matrix(
-        epoch=0,
-        weight_path='../datas/geo_down/outputs/learned_232/',
-        outputs_path='../datas/geo_down/outputs/check/learned_232/'
-    )
+    # check_change('../datas/geo_down/outputs/check/learned_232')
+    # confusion_all_matrix(
+    #     epoch=20,
+    #     weight_path='../datas/geo_down/outputs/learned_232/',
+    #     outputs_path='../datas/geo_down/outputs/check/learned_232/'
+    # )
+    # confusion_all_matrix(
+    #     epoch=0,
+    #     weight_path='../datas/geo_down/outputs/learned_232/',
+    #     outputs_path='../datas/geo_down/outputs/check/learned_232/'
+    # )
     # visualize_classmap()
     # visualize_classmap(
     #     weight='../datas/geo_down/outputs/learned_rep32_bp/020weight.pth',
