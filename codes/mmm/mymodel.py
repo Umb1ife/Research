@@ -40,8 +40,8 @@ class MyBaseModel(metaclass=ABCMeta):
 
         # backprop_weightをデータ数の逆数で補正
         backprop_weight = np.ones((class_num, 2), dtype=np.float64) \
-            if backprop_weight is None else backprop_weight
-        backprop_weight = np.sqrt(backprop_weight)
+            if backprop_weight is None \
+            else np.array(backprop_weight, dtype=np.float64)
         backprop_weight[backprop_weight == 0] = np.inf
         self._backprop_weight = 1 / backprop_weight
 

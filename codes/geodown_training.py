@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import numpy as np
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -107,21 +106,21 @@ if __name__ == "__main__":
 
     # maskの読み込み
     mask = DH.loadPickle('mask_5', input_path) if args.load_mask else None
-    mask = GU.down_mask(rep_category, category) if mask is None else mask
+    mask = GU.down_mask(rep_category, category, reverse=True) \
+        if mask is None else mask
 
     # 誤差伝播の重みの読み込み
     bp_weight = DH.loadNpy('backprop_weight', input_path) \
         if args.load_backprop_weight else None
     bp_weight = bp_weight if bp_weight is not None \
         else MakeBPWeight(train_dataset, num_class, mask, True, input_path)
-    bp_weight = np.power(bp_weight, 2)
 
     # -------------------------------------------------------------------------
     gcn_settings = {
         'category': category,
         'rep_category': rep_category,
         'relationship': DH.loadPickle('geo_relationship.pickle', base_path),
-        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned_232_reverse/200weight.pth'),
         'base_weight': torch.load(
             '../datas/geo_base/outputs/learned_50x25/400weight.pth'
         ),

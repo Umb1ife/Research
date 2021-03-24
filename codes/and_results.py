@@ -130,7 +130,7 @@ def recognize(saved=True):
         'category': geo_down,
         'rep_category': geo_rep,
         'relationship': DH.loadPickle('../datas/bases/geo_relationship.pickle'),
-        'rep_weight': torch.load('../datas/geo_rep/outputs/learned/200weight.pth'),
+        'rep_weight': torch.load('../datas/geo_rep/outputs/learned_232/200weight.pth'),
         'base_weight': torch.load(
             '../datas/geo_base/outputs/learned_50x25/400weight.pth'
         ),
@@ -144,13 +144,11 @@ def recognize(saved=True):
         network_setting=geogcn_settings,
     )
     geo_model.loadmodel(
-        '020weight.pth', '../datas/geo_down/outputs/learned_rep32_bp_lmask'
+        '020weight.pth', '../datas/geo_down/outputs/learned_232'
     )
     # -------------------------------------------------------------------------
-    pld2017 = DH.loadPickle('photo_loc_dict_2017.pickle',
-                            '../datas/backup/prepare/inputs')
-    pld2016 = DH.loadPickle('photo_loc_dict_2016.pickle',
-                            '../datas/backup/prepare/inputs')
+    pld2017 = DH.loadPickle('photo_loc_dict_2017.pickle', '../datas/bases')
+    pld2016 = DH.loadPickle('photo_loc_dict_2016.pickle', '../datas/bases')
     ta = DH.loadJson('train_anno.json', '../datas/vis_down/inputs')
     va = DH.loadJson('validate_anno.json', '../datas/vis_down/inputs')
     gdt = GU.down_dataset(geo_rep, geo_down, 'train')
@@ -425,8 +423,8 @@ def predict_sample(filename, fkey_rdict, phase='train', max_falsepositive=5):
 if __name__ == "__main__":
     # predict_samples(num_images=10000)
     # lastmask()
-    # recognize()
+    recognize()
     # coverage()
-    lastresult(before_labeling=True, thr=0.5)
+    # lastresult(before_labeling=True, thr=0.5)
 
     print('finish.')

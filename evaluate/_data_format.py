@@ -1,32 +1,11 @@
 import os
-import pandas as pd
 import sys
 from tqdm import tqdm
 
 sys.path.append(os.path.join('..', 'codes'))
 
 from mmm import DataHandler as DH
-from mmm import VisUtils as VU
-
-
-def geodata_format():
-    local_dict = DH.loadPickle(
-        '../datas/backup/def_georep/local_df_area16_wocoth_refined_r.pickle'
-    )
-    lda_new = pd.DataFrame(local_dict).T
-    lda_data = DH.loadPickle(
-        '../datas/geo_down/inputs/local_df_area16_wocoth_new.pickle'
-    )
-
-    for idx, data in tqdm(lda_data.iterrows(), total=lda_data.shape[0]):
-        lda_new.at[idx, 'geo'] = data['geo']
-        lda_new.at[idx, 'geo_val'] = data['geo_val']
-
-    DH.savePickle(
-        lda_new,
-        'local_df_area16_wocoth_refined.pickle',
-        '../datas/geo_down/inputs/'
-    )
+# from mmm import VisUtils as VU
 
 
 def vis_tag2file(stage='rep', saved=True):
@@ -77,14 +56,12 @@ def vis_sim_dict(saved=True):
 
 
 def samedown():
-    from geodown_training import limited_category
-
     t2f = DH.loadJson('../datas/bases/down_tag2file.json')
     t2f = set(t2f['train'].keys())
-    visrep = DH.loadJson('../datas/vis_rep/inputs/upper_category.json')
+    visrep = DH.loadJson('../datas/vis_rep/inputs/category.json')
     # visdown_old = DH.loadJson('../datas/gcn/inputs/category.json')
     georep = DH.loadJson('../datas/geo_rep/inputs/category.json')
-    geodown = limited_category(georep)
+    geodown = DH.loadJson('../datas/geo_down/inputs/category.json')
 
     down = set(geodown) - set(georep)
     down = down & t2f
@@ -203,7 +180,7 @@ def limited_category(reps, lda='../datas/bases/local_df_area16_wocoth_new'):
     return {key: idx for idx, key in enumerate(down)}
 
 
-def get_geo(saved=True):
+def _get_geo(saved=True):
     grd = DH.loadPickle('../datas/bases/geo_rep_df_area16_kl5.pickle')
     geo_rep_dict = grd.to_dict('index')
     lda = DH.loadPickle('../datas/bases/local_df_area16_wocoth_new.pickle')
@@ -283,6 +260,89 @@ def get_geo(saved=True):
     return geo_rep, down_tag
 
 
+def get_geo(saved=True):
+    old_rep = DH.loadJson('../datas/vis_down/inputs/upper_category.json')
+    old_down = DH.loadJson('../datas/vis_down/inputs/category_old.json')
+    down_tag = sorted(set(old_down) - set(old_rep))
+    # down_tag = sorted(set(old_geodown))
+    local_dict = DH.loadPickle('../datas/bases/local_df_area16_wocoth_new.pickle')
+    local_dict = local_dict.to_dict('index')
+    georep_dict = DH.loadPickle('../datas/bases/geo_rep_df_area16_kl5.pickle')
+    georep_dict = georep_dict.to_dict('index')
+
+    # 代表概念を持たない認識対象概念を選択
+    norep_list = []
+    for tag in down_tag:
+        if local_dict[tag]['geo_representative'] == []:
+            norep_list.append(tag)
+
+    # 代表概念を持たない認識対象概念を代表とする認識対象概念も選択
+    norep_list2 = []
+    while (set(norep_list) != set(norep_list2)):
+        norep_list = norep_list2.copy()
+        norep_list2 = []
+        for tag in down_tag:
+            if list(set(local_dict[tag]['geo_representative']) - set(norep_list)) == []:
+                norep_list2.append(tag)
+
+    # 認識対象概念から上記を消す
+    down_tag = list(set(down_tag) - set(norep_list2))
+
+    # それの2ステップ上まで代表概念をとる
+    geo_rep = []
+    for tag in down_tag:
+        geo_rep.extend(set(local_dict[tag]['geo_representative']) - set(norep_list))
+
+    geo_rep2 = []
+    skip_geo_rep = []
+    for tag in geo_rep:
+        temp = list(set(local_dict[tag]['geo_representative']) - set(down_tag) - set(norep_list))
+        if temp:
+            geo_rep2.extend(temp)
+            skip_geo_rep.append(tag)
+
+    geo_rep = list(set(geo_rep) | set(geo_rep2))
+    geo_rep = list(set(geo_rep) - set(down_tag) - set(skip_geo_rep))
+
+    # 代表概念から再度2ステップまでの認識対象概念を決定
+    down_tag2 = []
+    for tag in geo_rep:
+        down_tag2.extend(georep_dict[tag]['down'])
+    down_tag2 = list(set(down_tag2))
+    geo_rep2 = list(set(down_tag2) & set(list(georep_dict.keys())))
+    for tag in geo_rep2:
+        down_tag2.extend(georep_dict[tag]['down'])
+    down_tag = list(set(down_tag2) & set(down_tag))
+
+    reps = sorted(geo_rep)
+    reps = {cat: idx for idx, cat in enumerate(reps)}
+    category = sorted(set(down_tag) | set(geo_rep))
+    category = {cat: idx for idx, cat in enumerate(category)}
+
+    DH.saveJson(reps, 'category.json', '../datas/geo_rep/inputs')
+    DH.saveJson(reps, 'upper_category.json', '../datas/geo_down/inputs')
+    DH.saveJson(category, 'category.json', '../datas/geo_down/inputs')
+
+    # もう一回いる？
+    geo_rep = []
+    for tag in down_tag:
+        geo_rep.extend(set(local_dict[tag]['geo_representative']) - set(norep_list))
+
+    # geo_rep = list(set(geo_rep))
+    geo_rep2 = []
+    skip_geo_rep = []
+    for tag in geo_rep:
+        temp = list(set(local_dict[tag]['geo_representative']) - set(down_tag) - set(norep_list))
+        if temp:
+            geo_rep2.extend(temp)
+            skip_geo_rep.append(tag)
+
+    geo_rep = list(set(geo_rep) | set(geo_rep2))
+    geo_rep = list(set(geo_rep) - set(down_tag) - set(skip_geo_rep))
+
+    return
+
+
 if __name__ == "__main__":
     # geospatial_df()
     # vis_tag2file('rep')
@@ -295,8 +355,8 @@ if __name__ == "__main__":
     # )
     # bbb = DH.loadPickle('../datas/gcn/inputs/comb_mask/04.pickle')
     # geodata_format()
-    get_geo()
-    geo_rep2()
-    # samedown()
+    # get_geo()
+    # geo_rep2()
+    samedown()
 
     print('finish.')

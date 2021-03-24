@@ -4,9 +4,9 @@ import sys
 sys.path.append(os.path.join('..', 'codes'))
 
 
-def confusion_all_matrix(epoch=200, saved=True,
-                         weight_path='../datas/geo_down/outputs/learned/',
-                         outputs_path='../datas/geo_down/outputs/check/'):
+def confusion_all_matrix(epoch=20, saved=True,
+                         weight_path='../datas/vis_down/outputs/learned/',
+                         outputs_path='../datas/vis_down/outputs/check/'):
     '''
     正例・unknown・負例についてconfusion_matrixを作成
     '''
@@ -17,7 +17,7 @@ def confusion_all_matrix(epoch=200, saved=True,
     import torch
     from mmm import DataHandler as DH
     from mmm import DatasetFlickr
-    from mmm import FinetuneModel
+    from mmm import VisGCN
     from mmm import VisUtils as VU
     from torchvision import transforms
     from tqdm import tqdm
@@ -26,11 +26,12 @@ def confusion_all_matrix(epoch=200, saved=True,
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
     # データの読み込み先
-    input_path = '../datas/vis_rep/inputs/'
+    input_path = '../datas/vis_down/inputs/'
     category = DH.loadJson('category.json', input_path)
+    rep_category = DH.loadJson('upper_category.json', input_path)
 
-    vis_rep_train = VU.rep_anno(category, phase='train')
-    vis_rep_validate = VU.rep_anno(category, phase='validate')
+    vis_down_train = VU.down_anno(category, rep_category, 'train')
+    vis_down_validate = VU.down_anno(category, rep_category, 'validate')
     transform = transforms.Compose(
         [
             transforms.RandomResizedCrop(
@@ -47,13 +48,13 @@ def confusion_all_matrix(epoch=200, saved=True,
     kwargs_DF = {
         'train': {
             'category': category,
-            'annotations': vis_rep_train,
+            'annotations': vis_down_train,
             'transform': transform,
             'image_path': input_path + 'images/train/'
         },
         'validate': {
             'category': category,
-            'annotations': vis_rep_validate,
+            'annotations': vis_down_validate,
             'transform': transform,
             'image_path': input_path + 'images/validate/'
         }
@@ -64,13 +65,23 @@ def confusion_all_matrix(epoch=200, saved=True,
     num_class = train_dataset.num_category()
 
     # maskの読み込み
-    mask = VU.rep_mask(category)
+    mask = VU.down_mask(rep_category, category, sim_thr=0.4, saved=False)
+
+    # 学習で用いるデータの設定や読み込み先
+    gcn_settings = {
+        'category': category,
+        'rep_category': rep_category,
+        'relationship': DH.loadPickle('relationship.pickle', input_path),
+        'rep_weight': torch.load(input_path + 'rep_weight.pth'),
+        'feature_dimension': 2048
+    }
 
     # modelの設定
-    model = FinetuneModel(
+    model = VisGCN(
         class_num=num_class,
-        momentum=0.9,
+        weight_decay=1e-4,
         fix_mask=mask,
+        network_setting=gcn_settings,
     )
     model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
 
@@ -176,9 +187,167 @@ def confusion_all_matrix(epoch=200, saved=True,
     return np.array(train_counts), np.array(validate_counts)
 
 
-def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
-                   weight_path='../datas/vis_rep/outputs/learned/',
-                   outputs_path='../datas/vis_rep/outputs/check/sample/'):
+def rep_confmat(saved=False, output_path='../datas/vis_down/outputs/check/'):
+    '''
+    トレーニング前後での精度の変化、各クラス、各クラスの上位クラス
+    を一覧にしたリストの作成
+    '''
+    import numpy as np
+    from mmm import DataHandler as DH
+    from tqdm import tqdm
+
+    epoch00 = DH.loadNpy(
+        'cm_train_000.npy',
+        '../datas/vis_down/outputs/check/learned_lmask/'
+    )
+    epoch20 = DH.loadNpy(
+        'cm_train_020.npy',
+        '../datas/vis_down/outputs/check/learned_lmask/'
+    )
+
+    category = DH.loadJson('../datas/vis_down/inputs/category.json')
+    rep_category = DH.loadJson('../datas/vis_down/inputs/upper_category.json')
+    ldf = DH.loadPickle('../datas/bases/local_df_area16_wocoth_new.pickle')
+    # -------------------------------------------------------------------------
+    # 0: label, 1: rep
+    # 2 ~ 9: confusion_all_matrix of epoch 0
+    # 10 ~ 17: confusion_all matrix of epoch 20
+
+    compare_list = []
+    for idx, cat in tqdm(enumerate(category)):
+        if cat in rep_category:
+            continue
+
+        row = [cat, ldf.loc[cat]['representative']]
+        row.extend(epoch00[idx])
+        row.extend(epoch20[idx])
+
+        compare_list.append(row)
+
+    compare_list = np.array(compare_list, dtype=object)
+
+    if saved:
+        DH.saveNpy(compare_list, 'compare_pr', output_path)
+
+    return compare_list
+
+
+def hist_change(phase='train', barnum=3, binnum=5, saved=False):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+    from mmm import DataHandler as DH
+
+    plt.rcParams['font.family'] = 'IPAexGothic'
+    # -------------------------------------------------------------------------
+    data = DH.loadNpy('../datas/vis_down/outputs/check/compare_pr.npy')
+    before = [[] for _ in range(barnum)]
+    after = [[] for _ in range(barnum)]
+    ml = 0
+    for item in data:
+        idx = len(item[1]) - 1
+        ml = max(idx, ml)
+        idx = min(idx, barnum - 1)
+        before[idx].append(item[3])
+        after[idx].append(item[11])
+
+    before = [item for item in before if item]
+    after = [item for item in after if item]
+    barnum = len(before)
+    before_heights = np.zeros((barnum, binnum))
+    after_heights = np.zeros((barnum, binnum))
+    thresholds = np.linspace(0.0, 1.0, binnum + 1)
+
+    for idx, item in enumerate(before):
+        bin_heights = np.histogram(item, bins=binnum, range=(0.0, 1.0))[0]
+        before_heights[idx] = bin_heights / sum(bin_heights)
+
+    for idx, item in enumerate(after):
+        bin_heights = np.histogram(item, bins=binnum, range=(0.0, 1.0))[0]
+        after_heights[idx] = bin_heights / sum(bin_heights)
+
+    # -------------------------------------------------------------------------
+    x = np.arange(binnum)
+    width = 0.8 / barnum
+    fig = plt.figure()
+    ax1 = fig.add_subplot(2, 1, 1)
+    ax2 = fig.add_subplot(2, 1, 2)
+
+    # -------------------------------------------------------------------------
+    ax1.bar(x + 0.5, np.ones(binnum), 0.8, alpha=0.15)
+    for idx, bh in enumerate(before_heights[:-1]):
+        ax1.bar(
+            x + 0.1 + width * (idx + 0.5),
+            bh, width,
+            label='{0}個'.format(idx + 1)
+        )
+
+    ll = '{0}個'.format(barnum)
+    ll = ll + '以上' if ml + 1 > barnum else ll
+    ax1.bar(
+        x + 0.1 + width * (barnum - 0.5),
+        before_heights[-1], width,
+        label=ll
+    )
+
+    labels = ['{0}'.format(int(item * 100)) for item in thresholds]
+
+    # ax.set_title(fig_title)
+    # ax1.set_xlabel('学習前の再現率(%)')
+    # ax1.set_ylabel('割合')
+    ax1.set_xticks(np.arange(binnum + 1))
+    ax1.set_xticklabels(labels)
+    ax1.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+    ax1.set_yticklabels(['0 %', '25 %', '50 %', '75 %', '100 %'])
+    ax1.set_aspect(1.5)
+    ax1.legend(title='視覚代表概念の数')
+
+    # -------------------------------------------------------------------------
+    ax2.bar(x + 0.5, np.ones(binnum), 0.8, alpha=0.15)
+    for idx, bh in enumerate(after_heights[:-1]):
+        ax2.bar(
+            x + 0.1 + width * (idx + 0.5),
+            bh, width,
+            label='{0}個'.format(idx + 1)
+        )
+
+    ll = '{0}個'.format(barnum)
+    ll = ll + '以上' if ml + 1 > barnum else ll
+    ax2.bar(
+        x + 0.1 + width * (barnum - 0.5),
+        after_heights[-1], width,
+        label=ll
+    )
+
+    labels = ['{0}'.format(int(item * 100)) for item in thresholds]
+
+    # ax.set_title(fig_title)
+    ax2.set_xlabel('学習前後での再現率(%)\n(上：学習前, 下：学習後)')
+    # ax2.set_ylabel('割合')
+    ax2.set_xticks(np.arange(binnum + 1))
+    ax2.set_xticklabels(labels)
+    ax2.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
+    ax2.set_yticklabels(['0 %', '25 %', '50 %', '75 %', '100 %'])
+    ax2.set_aspect(1.5)
+    # ax2.legend(title='視覚代表概念の数', loc='upper left')
+
+    # -------------------------------------------------------------------------
+    if saved:
+        directory = '../datas/vis_down/outputs/check/images'
+        os.makedirs(directory, exist_ok=True)
+        fig.savefig(
+            '{0}/{1}.png'.format(directory, phase),
+            bbox_inches="tight",
+            pad_inches=0.1
+        )
+
+    fig.show()
+
+
+def predict_sample(epoch=20, phase='train', saved=True, num=3, thr=0.5,
+                   max_falsepositive=5,
+                   weight_path='../datas/vis_down/outputs/learned_lr1_bp20/',
+                   outputs_path='../datas/vis_down/outputs/check/sample/'):
     import matplotlib.pyplot as plt
     import numpy as np
     import os
@@ -187,7 +356,7 @@ def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
     from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, VPacker
     from mmm import DataHandler as DH
     from mmm import DatasetFlickr
-    from mmm import FinetuneModel
+    from mmm import VisGCN
     from mmm import VisUtils as VU
     from PIL import Image
     from torchvision import transforms
@@ -197,12 +366,13 @@ def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
     # データの読み込み先
-    input_path = '../datas/vis_rep/inputs/'
+    input_path = '../datas/vis_down/inputs/'
     category = DH.loadJson('category.json', input_path)
+    rep_category = DH.loadJson('upper_category.json', input_path)
     num_class = len(category)
 
-    vis_rep_train = VU.rep_anno(category, phase='train')
-    vis_rep_validate = VU.rep_anno(category, phase='validate')
+    vis_down_train = VU.down_anno(category, rep_category, 'train')
+    vis_down_validate = VU.down_anno(category, rep_category, 'validate')
     transform = transforms.Compose(
         [
             transforms.RandomResizedCrop(
@@ -219,13 +389,13 @@ def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
     kwargs_DF = {
         'train': {
             'category': category,
-            'annotations': vis_rep_train,
+            'annotations': vis_down_train,
             'transform': transform,
             'image_path': input_path + 'images/train/'
         },
         'validate': {
             'category': category,
-            'annotations': vis_rep_validate,
+            'annotations': vis_down_validate,
             'transform': transform,
             'image_path': input_path + 'images/validate/'
         }
@@ -243,14 +413,20 @@ def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
         loader.pin_memory = True
         cudnn.benchmark = True
 
-    # maskの読み込み
-    mask = VU.rep_mask(category)
+    # 学習で用いるデータの設定や読み込み先
+    gcn_settings = {
+        'category': category,
+        'rep_category': rep_category,
+        'relationship': DH.loadPickle('relationship.pickle', input_path),
+        'rep_weight': torch.load(input_path + 'rep_weight.pth'),
+        'feature_dimension': 2048
+    }
 
     # modelの設定
-    model = FinetuneModel(
+    model = VisGCN(
         class_num=num_class,
-        momentum=0.9,
-        fix_mask=mask,
+        weight_decay=1e-4,
+        network_setting=gcn_settings,
     )
     model.loadmodel('{0:0=3}weight'.format(epoch), weight_path)
 
@@ -294,8 +470,11 @@ def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
         ]
         pls = sorted(pls, key=lambda x: -x[1])
         fpl = ''
-        for pl, ll in pls:
+        for pl, ll in pls[:max_falsepositive]:
             fpl += pl + ': {0:.2f}%\n'.format(ll * 100)
+
+        if len(pls) > max_falsepositive:
+            fpl += '~\n'
 
         ax = plt.subplot(111)
         ax.imshow(image_s)
@@ -315,7 +494,7 @@ def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
 
         plt.tight_layout()
         plt.savefig(
-            '../datas/vis_rep/outputs/check/samples/' + filename[0],
+            '../datas/vis_down/outputs/check/samples/' + filename[0],
             bbox_inches="tight"
         )
         plt.show()
@@ -326,17 +505,18 @@ def predict_sample(epoch=200, phase='train', saved=True, num=3, thr=0.5,
 
 
 if __name__ == "__main__":
-    # predict_sample(saved=False, num=3)
-    predict_sample(saved=True, num=100000)
-    # confusion_all_matrix(
-    #     epoch=200,
-    #     weight_path='../datas/vis_rep/outputs/learned/',
-    #     outputs_path='../datas/vis_rep/outputs/check/learned/'
-    # )
-    # confusion_all_matrix(
-    #     epoch=0,
-    #     weight_path='../datas/vis_rep/outputs/learned/',
-    #     outputs_path='../datas/vis_rep/outputs/check/learned/'
-    # )
+    # predict_sample(saved=True, num=1000)
+    # rep_confmat(saved=True)
+    # hist_change(saved=True)
+    confusion_all_matrix(
+        epoch=20,
+        weight_path='../datas/vis_down/outputs/learned/',
+        outputs_path='../datas/vis_down/outputs/check/learned/'
+    )
+    confusion_all_matrix(
+        epoch=0,
+        weight_path='../datas/vis_down/outputs/learned/',
+        outputs_path='../datas/vis_down/outputs/check/learned/'
+    )
 
     print('finish.')

@@ -1,3 +1,9 @@
+import os
+import sys
+
+sys.path.append(os.path.join('..', 'codes'))
+
+
 import numpy as np
 from mmm import DataHandler as DH
 from scipy.stats import entropy
@@ -23,9 +29,14 @@ class GeoSim:
     def _cal_distribution(self, locate):
         self._kde.fit(np.radians(locate))
         distrib = np.exp(self._kde.score_samples(self._grid))
-        sum_dist = distrib.sum(keepdims=True)
+        # sum_dist = distrib.sum(keepdims=True)
 
-        return distrib / np.where(sum_dist == 0, 1, sum_dist)
+        # return distrib / np.where(sum_dist == 0, 1, sum_dist)
+
+        distrib += 1e-300
+        distrib /= np.sum(distrib)
+
+        return distrib
 
     def _data_shaping(self, lda):
         return [
@@ -120,9 +131,14 @@ class GeoRepSim:
     def _cal_distribution(self, locate):
         self._kde.fit(np.radians(locate))
         distrib = np.exp(self._kde.score_samples(self._grid))
-        sum_dist = distrib.sum(keepdims=True)
+        # sum_dist = distrib.sum(keepdims=True)
 
-        return distrib / np.where(sum_dist == 0, 1, sum_dist)
+        # return distrib / np.where(sum_dist == 0, 1, sum_dist)
+
+        distrib += 1e-300
+        distrib /= np.sum(distrib)
+
+        return distrib
 
     def calculate(self, lda):
         grd = DH.loadPickle('../datas/bases/geo_rep_df_area16_kl5.pickle')
@@ -155,10 +171,10 @@ if __name__ == "__main__":
     )
 
     # asd = GeoSim().calculate_thr(lda_o)
-    asd = GeoSim().calculate_full(lda_o)
-    DH.saveJson(asd, 'geo_all_sim.json', '../datas/bases/')
-    # rsd = GeoRepSim().calculate(lda_o)
-    # DH.saveJson(rsd, 'geo_rep_simdict.json', '../datas/geo_rep/inputs/')
+    # asd = GeoSim().calculate_full(lda_o)
+    # DH.saveJson(asd, 'geo_all_sim.json', '../datas/bases/')
+    rsd = GeoRepSim().calculate(lda_o)
+    DH.saveJson(rsd, 'geo_rep_simdict.json', '../datas/bases/')
 
     # grs = DH.loadJson('../datas/geo_rep/inputs/geo_rep_simdict.json')
 
