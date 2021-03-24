@@ -1,4 +1,3 @@
-import numpy as np
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -115,7 +114,6 @@ if __name__ == "__main__":
 
     # 誤差伝播の重みの読み込み
     bp_weight = DH.loadNpy('backprop_weight.npy', input_path)
-    bp_weight = np.power(bp_weight, 2)
 
     # マスク有り、マスク＋weight有りで試す？
     model = PreviousMethod(
